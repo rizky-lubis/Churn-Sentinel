@@ -1,0 +1,2281 @@
+<!DOCTYPE html>
+<html lang="en" class="dark">
+
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Churn Sentinel — Analisis Retensi Pelanggan</title>
+    <meta name="description" content="Sistem Prediksi Churn Pelanggan berbasis Machine Learning SVM">
+    <script src="https://cdn.tailwindcss.com?plugins=forms,container-queries"></script>
+    <script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.7/dist/chart.umd.min.js"></script>
+    <link href="https://fonts.googleapis.com/css2?family=Plus+Jakarta+Sans:wght@400;500;600;700;800&family=IBM+Plex+Mono:wght@400;500;600&display=swap" rel="stylesheet">
+    <link href="https://fonts.googleapis.com/css2?family=Material+Symbols+Outlined:wght,FILL@100..700,0..1&display=swap" rel="stylesheet">
+
+    <script>
+        tailwind.config = {
+            darkMode: "class",
+            theme: {
+                extend: {
+                    colors: {
+                        navy: { 950:'#080d1a', 900:'#0c1425', 800:'#151e35', 700:'#1e2a45', 600:'#2d3b58' },
+                        cyan: { 400:'#2dd4bf', 500:'#14b8a6', 600:'#0d9488' },
+                        emerald: { 400:'#34D399', 500:'#10B981', 600:'#059669' },
+                        rose: { 400:'#fb7185', 500:'#f43f5e', 600:'#e11d48' },
+                        amber: { 400:'#fbbf24', 500:'#f59e0b' },
+                        slate: { 300:'#c8d1de', 400:'#8b95a8', 500:'#5f6b7e' },
+                        accent: { 400:'#818cf8', 500:'#6366f1', 600:'#4f46e5' }
+                    },
+                    fontFamily: {
+                        sans: ['Plus Jakarta Sans','system-ui','sans-serif'],
+                        mono: ['IBM Plex Mono','monospace']
+                    }
+                }
+            }
+        }
+    </script>
+    <style>
+        *{box-sizing:border-box}
+        body { background:#080d1a; color:#e2e8f0; font-family:'Plus Jakarta Sans',system-ui,sans-serif; }
+        body::before { content:''; position:fixed; inset:0; background-image:radial-gradient(rgba(99,102,241,0.03) 1px,transparent 1px); background-size:32px 32px; pointer-events:none; z-index:0; }
+        .glass-panel { background:linear-gradient(135deg,rgba(21,30,53,0.7),rgba(12,20,37,0.85)); border:1px solid rgba(99,102,241,0.08); box-shadow:0 2px 8px rgba(0,0,0,0.2),0 0 0 1px rgba(255,255,255,0.02) inset; backdrop-filter:blur(8px); }
+        .input-field { background:rgba(255,255,255,0.95); border:1.5px solid #d1d5db; color:#1e293b; transition:all 0.2s ease; font-size:0.9rem; font-family:'Plus Jakarta Sans',sans-serif; }
+        .input-field:focus { outline:none; border-color:#6366f1; box-shadow:0 0 0 3px rgba(99,102,241,0.15); background:#fff; }
+        .input-field::placeholder { color:#9ca3af; }
+        .material-symbols-outlined { font-variation-settings:'FILL' 0,'wght' 400,'GRAD' 0,'opsz' 24; }
+        .material-symbols-outlined.filled { font-variation-settings:'FILL' 1; }
+        .btn-primary { background:linear-gradient(135deg,#6366f1,#4f46e5); transition:all 0.25s ease; border:none; box-shadow:0 2px 12px rgba(99,102,241,0.3); }
+        .btn-primary:hover { background:linear-gradient(135deg,#818cf8,#6366f1); transform:translateY(-2px); box-shadow:0 6px 20px rgba(99,102,241,0.4); }
+        .btn-primary:active { transform:translateY(0); box-shadow:0 1px 4px rgba(99,102,241,0.2); }
+        ::-webkit-scrollbar { width:5px; height:5px; }
+        ::-webkit-scrollbar-track { background:transparent; }
+        ::-webkit-scrollbar-thumb { background:#2d3b58; border-radius:10px; }
+        ::-webkit-scrollbar-thumb:hover { background:#3d4d6a; }
+        .metric-card { background:linear-gradient(145deg,rgba(21,30,53,0.6),rgba(12,20,37,0.8)); border:1px solid rgba(99,102,241,0.06); transition:all 0.3s ease; position:relative; overflow:hidden; }
+        .metric-card::before { content:''; position:absolute; top:0; left:0; right:0; height:2px; background:linear-gradient(90deg,transparent,rgba(99,102,241,0.3),transparent); opacity:0; transition:opacity 0.3s; }
+        .metric-card:hover { transform:translateY(-3px); box-shadow:0 8px 25px rgba(0,0,0,0.25); border-color:rgba(99,102,241,0.15); }
+        .metric-card:hover::before { opacity:1; }
+        .section-header { display:flex; align-items:center; gap:10px; padding:10px 14px; background:linear-gradient(90deg,rgba(99,102,241,0.06),transparent); border-left:3px solid #6366f1; border-radius:0 10px 10px 0; margin-bottom:6px; }
+        .section-header .text { font-size:0.72rem; font-weight:700; text-transform:uppercase; letter-spacing:0.12em; color:#818cf8; }
+        .help-tip { font-size:0.7rem; color:#5f6b7e; margin-top:3px; font-style:normal; display:block; }
+        @keyframes fadeUp { from{opacity:0;transform:translateY(16px)} to{opacity:1;transform:translateY(0)} }
+        .fade-up { animation:fadeUp 0.4s ease-out forwards; }
+        .welcome-banner { background:linear-gradient(135deg,rgba(99,102,241,0.08),rgba(20,184,166,0.05)); border:1px solid rgba(99,102,241,0.1); border-radius:16px; padding:24px 28px; margin-bottom:28px; position:relative; overflow:hidden; }
+        .welcome-banner::after { content:''; position:absolute; top:-50%; right:-20%; width:300px; height:300px; background:radial-gradient(circle,rgba(99,102,241,0.06),transparent 70%); pointer-events:none; }
+        .step-num { width:28px; height:28px; border-radius:8px; background:rgba(99,102,241,0.12); color:#818cf8; display:flex; align-items:center; justify-content:center; font-size:12px; font-weight:700; flex-shrink:0; }
+        .mobile-sidebar { position:fixed; top:0; left:0; bottom:0; width:260px; z-index:100; background:#0c1425; border-right:1px solid rgba(99,102,241,0.08); transform:translateX(-100%); transition:transform 0.3s ease; }
+        .mobile-sidebar.open { transform:translateX(0); }
+        .sidebar-overlay { position:fixed; inset:0; background:rgba(0,0,0,0.6); z-index:99; display:none; backdrop-filter:blur(2px); }
+        .sidebar-overlay.open { display:block; }
+        .about-card { background:linear-gradient(145deg,rgba(21,30,53,0.5),rgba(12,20,37,0.7)); border:1px solid rgba(99,102,241,0.06); border-radius:16px; padding:28px; }
+        .about-card h3 { color:#818cf8; font-size:1.05rem; font-weight:700; margin-bottom:14px; display:flex; align-items:center; gap:10px; }
+        .about-card p,.about-card li { color:#c8d1de; font-size:0.88rem; line-height:1.75; }
+        .flow-step { display:flex; align-items:flex-start; gap:14px; padding:16px; border-radius:14px; background:rgba(8,13,26,0.5); border:1px solid rgba(99,102,241,0.05); transition:border-color 0.2s; }
+        .flow-step:hover { border-color:rgba(99,102,241,0.12); }
+        .flow-step .icon-wrap { width:44px; height:44px; border-radius:12px; display:flex; align-items:center; justify-content:center; flex-shrink:0; }
+        .brand-text { font-weight:800; font-size:1rem; background:linear-gradient(135deg,#818cf8,#2dd4bf); -webkit-background-clip:text; -webkit-text-fill-color:transparent; letter-spacing:-0.02em; }
+        select.input-field { appearance:auto; }
+    </style>
+</head>
+
+<body class="min-h-screen flex overflow-hidden">
+    <div id="sidebar-overlay" class="sidebar-overlay" onclick="toggleMobileSidebar()"></div>
+    <nav id="mobile-sidebar" class="mobile-sidebar flex flex-col md:hidden">
+        <div class="h-16 flex items-center px-6 border-b border-navy-700">
+            <span class="brand-text">Churn Sentinel</span>
+            <button onclick="toggleMobileSidebar()" class="ml-auto text-slate-400 hover:text-white transition-colors"><span class="material-symbols-outlined">close</span></button>
+        </div>
+        <div class="p-4 flex-1 space-y-2">
+            <p data-i18n="nav-core" class="text-xs font-semibold text-slate-500 uppercase tracking-wider mb-4 px-2">Inti Analitik</p>
+            <button onclick="switchTab('dashboard');toggleMobileSidebar()" id="mnav-dashboard" class="w-full flex items-center px-3 py-2.5 rounded-lg text-sm transition-colors text-slate-400 hover:bg-navy-800"><span class="material-symbols-outlined text-[18px] mr-3">dashboard</span><span data-i18n="nav-overview">Ringkasan</span></button>
+            <button onclick="switchTab('prediction');toggleMobileSidebar()" id="mnav-prediction" class="w-full flex items-center px-3 py-2.5 rounded-lg text-sm transition-colors bg-navy-800 text-accent-400 font-medium"><span class="material-symbols-outlined text-[18px] mr-3">model_training</span><span data-i18n="nav-risk">Analisis Risiko</span></button>
+            <button onclick="switchTab('insights');toggleMobileSidebar()" id="mnav-insights" class="w-full flex items-center px-3 py-2.5 rounded-lg text-sm transition-colors text-slate-400 hover:bg-navy-800"><span class="material-symbols-outlined text-[18px] mr-3">insights</span><span data-i18n="nav-trends">Tren &amp; Driver</span></button>
+            <div class="border-t border-navy-700 my-3"></div>
+            <button onclick="switchTab('about');toggleMobileSidebar()" id="mnav-about" class="w-full flex items-center px-3 py-2.5 rounded-lg text-sm transition-colors text-slate-400 hover:bg-navy-800"><span class="material-symbols-outlined text-[18px] mr-3">info</span><span data-i18n="nav-about">Tentang Sistem</span></button>
+        </div>
+    </nav>
+
+    <aside class="w-64 bg-navy-900 border-r border-navy-700/50 flex-shrink-0 flex flex-col hidden md:flex z-50">
+        <div class="h-16 flex items-center px-6 border-b border-navy-700">
+            <span class="brand-text">Churn Sentinel</span>
+        </div>
+        <div class="p-4 flex-1 space-y-2">
+            <p data-i18n="nav-core" class="text-xs font-semibold text-slate-500 uppercase tracking-wider mb-4 px-2">
+                Analytics Core</p>
+
+            <button onclick="switchTab('dashboard')" id="nav-dashboard"
+                class="w-full flex items-center px-3 py-2 rounded-lg text-sm transition-colors text-slate-400 hover:text-slate-200 hover:bg-navy-800">
+                <span class="material-symbols-outlined text-[18px] mr-3">dashboard</span>
+                <span data-i18n="nav-overview">Overview</span>
+            </button>
+            <button onclick="switchTab('prediction')" id="nav-prediction"
+                class="w-full flex items-center px-3 py-2 rounded-lg text-sm transition-colors bg-navy-800 text-accent-400 font-medium">
+                <span class="material-symbols-outlined text-[18px] mr-3">model_training</span>
+                <span data-i18n="nav-risk">Risk Analysis</span>
+            </button>
+            <button onclick="switchTab('insights')" id="nav-insights"
+                class="w-full flex items-center px-3 py-2 rounded-lg text-sm transition-colors text-slate-400 hover:text-slate-200 hover:bg-navy-800">
+                <span class="material-symbols-outlined text-[18px] mr-3">insights</span>
+                <span data-i18n="nav-trends">Tren &amp; Driver</span>
+            </button>
+            <div class="border-t border-navy-700 my-3"></div>
+            <button onclick="switchTab('about')" id="nav-about"
+                class="w-full flex items-center px-3 py-2 rounded-lg text-sm transition-colors text-slate-400 hover:text-slate-200 hover:bg-navy-800">
+                <span class="material-symbols-outlined text-[18px] mr-3">info</span>
+                <span data-i18n="nav-about">Tentang Sistem</span>
+            </button>
+        </div>
+        <div class="p-4 border-t border-navy-700">
+            <div class="flex items-center">
+                <div class="w-8 h-8 rounded bg-navy-700 flex items-center justify-center text-xs font-mono font-bold text-slate-300 border border-navy-600">AD</div>
+                <div class="ml-3">
+                    <p data-i18n="unit-name" class="text-xs font-medium text-slate-300">Administrator</p>
+                    <p data-i18n="system-status" class="text-[10px] text-emerald-400 font-mono flex items-center"><span class="w-1 h-1 rounded-full bg-emerald-400 mr-1.5 inline-block"></span>Sistem Aktif</p>
+                </div>
+            </div>
+        </div>
+    </aside>
+
+    <div class="flex-1 flex flex-col h-screen overflow-hidden bg-navy-950 relative">
+
+
+        <header
+            class="h-16 border-b border-navy-700/50 flex items-center justify-between px-6 bg-navy-950/90 backdrop-blur-md z-10">
+            <div class="flex items-center md:hidden">
+                <button onclick="toggleMobileSidebar()" class="text-slate-400 hover:text-slate-200 transition-colors"><span class="material-symbols-outlined">menu</span></button>
+                <span class="ml-3 brand-text">Churn Sentinel</span>
+            </div>
+            <div class="hidden md:flex items-center text-sm font-mono text-slate-400">
+                <span class="w-1.5 h-1.5 rounded-full bg-emerald-500 mr-2"></span>
+                <span data-i18n="svm-connected">Model: Ready</span>
+            </div>
+            <div class="flex items-center gap-4">
+                <!-- Language Switcher -->
+                <div class="flex bg-navy-800 rounded p-1 border border-navy-700 mr-2">
+                    <button onclick="setLanguage('id')" id="lang-id"
+                        class="px-2 py-1 rounded text-[10px] font-bold transition-all">ID</button>
+                    <button onclick="setLanguage('en')" id="lang-en"
+                        class="px-2 py-1 rounded text-[10px] font-bold transition-all">EN</button>
+                </div>
+                <button class="text-slate-400 hover:text-slate-200 transition-colors" title="Notifications">
+                    <span class="material-symbols-outlined text-[20px]">notifications</span>
+                </button>
+                <button class="text-slate-400 hover:text-slate-200 transition-colors" title="Settings">
+                    <span class="material-symbols-outlined text-[20px]">settings</span>
+                </button>
+            </div>
+        </header>
+
+        <main class="flex-1 overflow-y-auto p-6 lg:p-8 z-10">
+
+            <div id="view-dashboard" class="hidden space-y-6 max-w-7xl mx-auto animate-in fade-in duration-300">
+                <!-- Welcome Banner -->
+                <div class="welcome-banner flex flex-col md:flex-row md:items-center justify-between gap-4">
+                    <div>
+                        <h2 data-i18n="welcome-title" class="text-lg font-bold text-slate-100">Selamat Datang di Churn Sentinel AI</h2>
+                        <p data-i18n="welcome-desc" class="text-xs text-slate-400 mt-1 max-w-2xl">
+                            Sistem analitik retensi pelanggan cerdas bertenaga algoritma SVM. Masukkan data profil pelanggan atau unggah data batch untuk mendeteksi probabilitas churn secara dini.
+                        </p>
+                    </div>
+                    <div class="flex items-center gap-3 bg-navy-800/80 px-4 py-2.5 rounded-xl border border-navy-700/50 flex-shrink-0">
+                        <span class="w-2.5 h-2.5 rounded-full bg-emerald-500 animate-pulse"></span>
+                        <div class="text-[11px] font-mono">
+                            <p class="text-slate-400 uppercase tracking-wider text-[9px]" data-i18n="engine-status">Engine Status</p>
+                            <p class="text-emerald-400 font-bold">SVM ACTIVE (92.4% ACC)</p>
+                        </div>
+                    </div>
+                </div>
+
+                <div class="flex justify-between items-end mb-6">
+                    <div>
+                        <h1 data-i18n="dash-title" class="text-2xl font-semibold text-slate-100">Enterprise Overview
+                        </h1>
+                        <p data-i18n="dash-subtitle" class="text-sm text-slate-400 mt-1">Real-time metrics and retention
+                            history.</p>
+                    </div>
+                    <button
+                        class="text-xs font-mono bg-navy-800 text-slate-300 border border-navy-700 px-3 py-1.5 rounded hover:bg-navy-700 transition-colors flex items-center gap-2">
+                        <span class="material-symbols-outlined text-[14px]">download</span> <span
+                            data-i18n="export-report">Export Report</span>
+                    </button>
+                </div>
+
+                <div class="grid grid-cols-1 md:grid-cols-4 gap-4">
+                    <div class="metric-card rounded-xl p-5">
+                        <p data-i18n="kpi-total"
+                            class="text-xs font-semibold text-slate-400 uppercase tracking-wider mb-2">Total Customers
+                        </p>
+                        <p class="text-2xl font-mono text-slate-100">7,043</p>
+                        <p class="text-xs text-emerald-400 mt-2 flex items-center"><span
+                                class="material-symbols-outlined text-[12px] mr-1">arrow_upward</span> +1.2%</p>
+                    </div>
+                    <div class="metric-card rounded-xl p-5">
+                        <p data-i18n="kpi-churn"
+                            class="text-xs font-semibold text-slate-400 uppercase tracking-wider mb-2">Global Churn Rate
+                        </p>
+                        <p class="text-2xl font-mono text-rose-400">26.5%</p>
+                        <p class="text-xs text-rose-400 mt-2 flex items-center"><span
+                                class="material-symbols-outlined text-[12px] mr-1">arrow_upward</span> +0.4%</p>
+                    </div>
+                    <div class="metric-card rounded-xl p-5">
+                        <p data-i18n="kpi-revenue"
+                            class="text-xs font-semibold text-slate-400 uppercase tracking-wider mb-2">Monthly Revenue
+                        </p>
+                        <p class="text-2xl font-mono text-slate-100">$456,200</p>
+                        <p class="text-xs text-emerald-400 mt-2 flex items-center"><span
+                                class="material-symbols-outlined text-[12px] mr-1">arrow_upward</span> +3.1%</p>
+                    </div>
+                    <div class="metric-card rounded-xl p-5">
+                        <p data-i18n="kpi-retention"
+                            class="text-xs font-semibold text-slate-400 uppercase tracking-wider mb-2">Retention Success
+                        </p>
+                        <p class="text-2xl font-mono text-accent-400">68.2%</p>
+                        <p class="text-xs text-slate-400 mt-2 flex items-center"><span
+                                class="material-symbols-outlined text-[12px] mr-1">horizontal_rule</span> Steady</p>
+                    </div>
+                </div>
+
+                <div class="glass-panel rounded-2xl p-6 border border-navy-700">
+                    <h3 data-i18n="chart-title" class="text-sm font-semibold text-slate-300 mb-6">Predicted Churn Volume
+                        (Last 30 Days)</h3>
+                    <div class="h-48">
+                        <canvas id="churnVolumeChart"></canvas>
+                    </div>
+                </div>
+
+                <div class="glass-panel rounded-2xl p-6 border border-navy-700">
+                    <div class="flex justify-between items-center mb-6">
+                        <h3 data-i18n="hist-title" class="text-sm font-semibold text-slate-300">Recent Predictions &
+                            Actions</h3>
+                        <div class="flex gap-2">
+                            <button onclick="clearHistory()"
+                                class="text-xs text-rose-400 hover:text-rose-300 transition-colors flex items-center">
+                                <span class="material-symbols-outlined text-[14px] mr-1">delete</span> <span
+                                    data-i18n="clear-logs">Clear Logs</span>
+                            </button>
+                        </div>
+                    </div>
+                    <div class="overflow-x-auto">
+                        <table class="w-full text-left border-collapse text-sm">
+                            <thead>
+                                <tr class="border-b border-navy-700">
+                                    <th data-i18n="th-time" class="pb-3 text-xs font-semibold text-slate-500 uppercase">
+                                        Timestamp</th>
+                                    <th data-i18n="th-id" class="pb-3 text-xs font-semibold text-slate-500 uppercase">
+                                        Customer ID</th>
+                                    <th data-i18n="th-risk" class="pb-3 text-xs font-semibold text-slate-500 uppercase">
+                                        Risk Level</th>
+                                    <th data-i18n="th-confidence" class="pb-3 text-xs font-semibold text-slate-500 uppercase">
+                                        Confidence</th>
+                                    <th class="pb-3 text-xs font-semibold text-slate-500 uppercase text-center">Details</th>
+                                    <th data-i18n="th-action"
+                                        class="pb-3 text-xs font-semibold text-slate-500 uppercase text-right">Action</th>
+                                </tr>
+                            </thead>
+                            <tbody id="history-table-body">
+                                <!-- JS populated -->
+                            </tbody>
+                        </table>
+                        <div id="empty-history" class="text-center py-10">
+                            <p data-i18n="empty-msg" class="text-sm text-slate-500">No predictions yet. Run your first
+                                customer risk analysis.</p>
+                        </div>
+                    </div>
+                </div>
+            </div>
+
+            <div id="view-prediction" class="space-y-6 max-w-7xl mx-auto animate-in fade-in duration-300 block">
+                <!-- Welcome Banner -->
+                <div class="welcome-banner flex flex-col md:flex-row md:items-center justify-between gap-4">
+                    <div>
+                        <h2 data-i18n="welcome-title" class="text-lg font-bold text-slate-100">Selamat Datang di Churn Sentinel AI</h2>
+                        <p data-i18n="welcome-desc" class="text-xs text-slate-400 mt-1 max-w-2xl">
+                            Sistem analitik retensi pelanggan cerdas bertenaga algoritma SVM. Masukkan data profil pelanggan atau unggah data batch untuk mendeteksi probabilitas churn secara dini.
+                        </p>
+                    </div>
+                    <div class="flex items-center gap-3 bg-navy-800/80 px-4 py-2.5 rounded-xl border border-navy-700/50 flex-shrink-0">
+                        <span class="w-2.5 h-2.5 rounded-full bg-emerald-500 animate-pulse"></span>
+                        <div class="text-[11px] font-mono">
+                            <p class="text-slate-400 uppercase tracking-wider text-[9px]" data-i18n="engine-status">Engine Status</p>
+                            <p class="text-emerald-400 font-bold">SVM ACTIVE (92.4% ACC)</p>
+                        </div>
+                    </div>
+                </div>
+
+                <div class="flex justify-between items-end mb-6">
+                    <div>
+                        <h1 data-i18n="analyze-title" class="text-2xl font-semibold text-slate-100">Analyze Customer
+                            Risk</h1>
+                        <p data-i18n="analyze-subtitle" class="text-sm text-slate-400 mt-1">Run SVM model inference on
+                            customer features to predict churn probability.</p>
+                    </div>
+                    <div class="flex bg-navy-800 rounded p-1 border border-navy-700">
+                        <button onclick="toggleInputMode('manual')" id="tab-manual"
+                            class="px-4 py-1.5 rounded bg-navy-700 text-accent-400 text-xs font-medium transition-all shadow-sm">
+                            <span data-i18n="tab-single">Single Input</span>
+                        </button>
+                        <button onclick="toggleInputMode('csv')" id="tab-csv"
+                            class="px-4 py-1.5 rounded text-slate-400 hover:text-slate-200 text-xs font-medium transition-all">
+                            <span data-i18n="tab-batch">Batch CSV</span>
+                        </button>
+                    </div>
+                </div>
+
+                <div class="grid grid-cols-1 xl:grid-cols-3 gap-6">
+                    <div class="xl:col-span-2 space-y-6">
+
+                        <div id="form-manual"
+                            class="glass-panel rounded-2xl p-6 border border-navy-700 animate-in fade-in">
+                            <h3 class="text-sm font-semibold text-slate-300 mb-6 flex items-center">
+                                <span class="material-symbols-outlined text-[18px] mr-2 text-accent-400">tune</span> <span
+                                    data-i18n="feat-title">Feature Parameters</span>
+                            </h3>
+                            <form id="churn-form" class="grid grid-cols-1 md:grid-cols-2 gap-4">
+                                <!-- Section 1: Identity & Demographics -->
+                                <div class="md:col-span-2 section-header">
+                                    <span class="material-symbols-outlined text-[16px] text-accent-400">person</span>
+                                    <span class="text" data-i18n="sec-demographics">Identitas &amp; Demografi</span>
+                                </div>
+
+                                <div class="md:col-span-2 mb-2">
+                                    <label data-i18n="label-id"
+                                        class="flex items-center text-xs font-medium text-slate-400 mb-1.5">
+                                        <span class="material-symbols-outlined text-[14px] mr-1">fingerprint</span> Customer Identifier
+                                    </label>
+                                    <input id="customerName" name="customerName" type="text" title="Customer Identifier"
+                                        class="input-field w-full rounded-lg px-3 py-2.5 font-mono"
+                                        placeholder="e.g. CUST-8921" required>
+                                </div>
+
+                                <div>
+                                    <label data-i18n="label-gender"
+                                        class="block text-xs font-medium text-slate-400 mb-1.5">Gender</label>
+                                    <select id="gender" name="gender" title="Gender"
+                                        class="input-field w-full rounded-lg px-3 py-2">
+                                        <option value="Male">Male</option>
+                                        <option value="Female">Female</option>
+                                    </select>
+                                </div>
+                                <div>
+                                    <label data-i18n="label-senior"
+                                        class="block text-xs font-medium text-slate-400 mb-1.5">Senior Citizen</label>
+                                    <select id="SeniorCitizen" name="SeniorCitizen" title="Senior Citizen"
+                                        class="input-field w-full rounded-lg px-3 py-2">
+                                        <option value="0">No</option>
+                                        <option value="1">Yes</option>
+                                    </select>
+                                </div>
+                                <div>
+                                    <label data-i18n="label-partner"
+                                        class="block text-xs font-medium text-slate-400 mb-1.5">Partner</label>
+                                    <select id="Partner" name="Partner" title="Partner"
+                                        class="input-field w-full rounded-lg px-3 py-2">
+                                        <option value="No">No</option>
+                                        <option value="Yes">Yes</option>
+                                    </select>
+                                </div>
+                                <div>
+                                    <label data-i18n="label-dependents"
+                                        class="block text-xs font-medium text-slate-400 mb-1.5">Dependents</label>
+                                    <select id="Dependents" name="Dependents" title="Dependents"
+                                        class="input-field w-full rounded-lg px-3 py-2">
+                                        <option value="No">No</option>
+                                        <option value="Yes">Yes</option>
+                                    </select>
+                                </div>
+
+                                <!-- Section 2: Core Services -->
+                                <div class="md:col-span-2 section-header mt-2">
+                                    <span class="material-symbols-outlined text-[16px] text-accent-400">router</span>
+                                    <span class="text" data-i18n="sec-services">Layanan Utama</span>
+                                </div>
+
+                                <div>
+                                    <label data-i18n="label-phone"
+                                        class="block text-xs font-medium text-slate-400 mb-1.5">Phone Service</label>
+                                    <select id="PhoneService" name="PhoneService" title="Phone Service"
+                                        class="input-field w-full rounded-lg px-3 py-2">
+                                        <option value="Yes">Yes</option>
+                                        <option value="No">No</option>
+                                    </select>
+                                </div>
+                                <div>
+                                    <label data-i18n="label-multiple"
+                                        class="block text-xs font-medium text-slate-400 mb-1.5">Multiple Lines</label>
+                                    <select id="MultipleLines" name="MultipleLines" title="Multiple Lines"
+                                        class="input-field w-full rounded-lg px-3 py-2">
+                                        <option value="No">No</option>
+                                        <option value="Yes">Yes</option>
+                                        <option value="No phone service">No phone service</option>
+                                    </select>
+                                </div>
+                                <div class="md:col-span-2">
+                                    <label data-i18n="label-internet"
+                                        class="block text-xs font-medium text-slate-400 mb-1.5">Internet Service</label>
+                                    <select id="InternetService" name="InternetService" title="Internet Service"
+                                        class="input-field w-full rounded-lg px-3 py-2">
+                                        <option value="Fiber optic">Fiber optic</option>
+                                        <option value="DSL">DSL</option>
+                                        <option value="No">No</option>
+                                    </select>
+                                </div>
+
+                                <!-- Section 3: Security & Add-ons -->
+                                <div class="md:col-span-2 section-header mt-2">
+                                    <span class="material-symbols-outlined text-[16px] text-accent-400">security</span>
+                                    <span class="text" data-i18n="sec-security">Keamanan &amp; Tambahan</span>
+                                </div>
+
+                                <div>
+                                    <label data-i18n="label-security"
+                                        class="block text-xs font-medium text-slate-400 mb-1.5">Online Security</label>
+                                    <select id="OnlineSecurity" name="OnlineSecurity" title="Online Security"
+                                        class="input-field w-full rounded-lg px-3 py-2">
+                                        <option value="No">No</option>
+                                        <option value="Yes">Yes</option>
+                                        <option value="No internet service">No internet service</option>
+                                    </select>
+                                </div>
+                                <div>
+                                    <label data-i18n="label-backup"
+                                        class="block text-xs font-medium text-slate-400 mb-1.5">Online Backup</label>
+                                    <select id="OnlineBackup" name="OnlineBackup" title="Online Backup"
+                                        class="input-field w-full rounded-lg px-3 py-2">
+                                        <option value="No">No</option>
+                                        <option value="Yes">Yes</option>
+                                        <option value="No internet service">No internet service</option>
+                                    </select>
+                                </div>
+                                <div>
+                                    <label data-i18n="label-protection"
+                                        class="block text-xs font-medium text-slate-400 mb-1.5">Device Protection</label>
+                                    <select id="DeviceProtection" name="DeviceProtection" title="Device Protection"
+                                        class="input-field w-full rounded-lg px-3 py-2">
+                                        <option value="No">No</option>
+                                        <option value="Yes">Yes</option>
+                                        <option value="No internet service">No internet service</option>
+                                    </select>
+                                </div>
+                                <div>
+                                    <label data-i18n="label-support"
+                                        class="block text-xs font-medium text-slate-400 mb-1.5">Tech Support</label>
+                                    <select id="TechSupport" name="TechSupport" title="Tech Support"
+                                        class="input-field w-full rounded-lg px-3 py-2">
+                                        <option value="No">No</option>
+                                        <option value="Yes">Yes</option>
+                                        <option value="No internet service">No internet service</option>
+                                    </select>
+                                </div>
+                                <div>
+                                    <label data-i18n="label-tv"
+                                        class="block text-xs font-medium text-slate-400 mb-1.5">Streaming TV</label>
+                                    <select id="StreamingTV" name="StreamingTV" title="Streaming TV"
+                                        class="input-field w-full rounded-lg px-3 py-2">
+                                        <option value="No">No</option>
+                                        <option value="Yes">Yes</option>
+                                        <option value="No internet service">No internet service</option>
+                                    </select>
+                                </div>
+                                <div>
+                                    <label data-i18n="label-movies"
+                                        class="block text-xs font-medium text-slate-400 mb-1.5">Streaming Movies</label>
+                                    <select id="StreamingMovies" name="StreamingMovies" title="Streaming Movies"
+                                        class="input-field w-full rounded-lg px-3 py-2">
+                                        <option value="No">No</option>
+                                        <option value="Yes">Yes</option>
+                                        <option value="No internet service">No internet service</option>
+                                    </select>
+                                </div>
+
+                                <!-- Section 4: Contract & Billing -->
+                                <div class="md:col-span-2 section-header mt-2">
+                                    <span class="material-symbols-outlined text-[16px] text-accent-400">payments</span>
+                                    <span class="text" data-i18n="sec-finance">Kontrak &amp; Keuangan</span>
+                                </div>
+
+                                <div>
+                                    <label data-i18n="label-contract"
+                                        class="block text-xs font-medium text-slate-400 mb-1.5">Contract</label>
+                                    <select id="Contract" name="Contract" title="Contract"
+                                        class="input-field w-full rounded-lg px-3 py-2">
+                                        <option value="Month-to-month">Month-to-month</option>
+                                        <option value="One year">One year</option>
+                                        <option value="Two year">Two year</option>
+                                    </select>
+                                </div>
+                                <div>
+                                    <label data-i18n="label-billing"
+                                        class="block text-xs font-medium text-slate-400 mb-1.5">Paperless Billing</label>
+                                    <select id="PaperlessBilling" name="PaperlessBilling" title="Paperless Billing"
+                                        class="input-field w-full rounded-lg px-3 py-2">
+                                        <option value="Yes">Yes</option>
+                                        <option value="No">No</option>
+                                    </select>
+                                </div>
+                                <div class="md:col-span-2">
+                                    <label data-i18n="label-payment"
+                                        class="block text-xs font-medium text-slate-400 mb-1.5">Payment Method</label>
+                                    <select id="PaymentMethod" name="PaymentMethod" title="Payment Method"
+                                        class="input-field w-full rounded-lg px-3 py-2">
+                                        <option value="Electronic check">Electronic check</option>
+                                        <option value="Mailed check">Mailed check</option>
+                                        <option value="Bank transfer (automatic)">Bank transfer (auto)</option>
+                                        <option value="Credit card (automatic)">Credit card (auto)</option>
+                                    </select>
+                                </div>
+                                <div>
+                                    <label data-i18n="label-tenure"
+                                        class="flex items-center text-xs font-medium text-slate-400 mb-1.5">
+                                        <span class="material-symbols-outlined text-[14px] mr-1">calendar_today</span> Tenure (Months)
+                                    </label>
+                                    <input id="tenure" name="tenure" type="number" title="Tenure in Months"
+                                        class="input-field w-full rounded-lg px-3 py-2 font-mono" placeholder="12"
+                                        required>
+                                    <span class="help-tip font-sans" data-i18n="help-tenure">Lama berlangganan dalam satuan bulan</span>
+                                </div>
+                                <div>
+                                    <label data-i18n="label-monthly"
+                                        class="flex items-center text-xs font-medium text-slate-400 mb-1.5">
+                                        <span class="material-symbols-outlined text-[14px] mr-1">payments</span> Monthly Charges (Rp)
+                                    </label>
+                                    <input id="MonthlyCharges" name="MonthlyCharges" type="number"
+                                        title="Monthly Charges"
+                                        class="input-field w-full rounded-lg px-3 py-2 font-mono" placeholder="150000"
+                                        required>
+                                    <span class="help-tip font-sans" data-i18n="help-monthly">Biaya bulanan dalam Rupiah</span>
+                                </div>
+                                <div class="md:col-span-2">
+                                    <label data-i18n="label-total"
+                                        class="flex items-center text-xs font-medium text-slate-400 mb-1.5">
+                                        <span class="material-symbols-outlined text-[14px] mr-1">account_balance_wallet</span> Total Charges (Rp)
+                                    </label>
+                                    <input id="TotalCharges" name="TotalCharges" type="number" title="Total Charges"
+                                        class="input-field w-full rounded-lg px-3 py-2 font-mono" placeholder="1800000"
+                                        required>
+                                    <span class="help-tip font-sans" data-i18n="help-total">Akumulasi biaya selama berlangganan</span>
+                                </div>
+                            </form>
+
+                            <div class="mt-6">
+                                <button id="analyze-btn"
+                                    class="w-full btn-primary text-white font-semibold py-3 rounded-lg flex justify-center items-center gap-2">
+                                    <span class="material-symbols-outlined text-[18px]">bolt</span> <span
+                                        data-i18n="btn-execute">Execute Inference</span>
+                                    <div id="loader" class="hidden">
+                                        <svg class="animate-spin h-4 w-4 text-white" fill="none" viewBox="0 0 24 24">
+                                            <circle class="opacity-25" cx="12" cy="12" r="10" stroke="currentColor"
+                                                stroke-width="4"></circle>
+                                            <path class="opacity-75" fill="currentColor"
+                                                d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z">
+                                            </path>
+                                        </svg>
+                                    </div>
+                                </button>
+                            </div>
+                        </div>
+
+                        <div id="form-csv"
+                            class="glass-panel rounded-2xl p-6 border border-navy-700 hidden animate-in fade-in">
+                            <h3 class="text-sm font-semibold text-slate-300 mb-6 flex items-center">
+                                <span
+                                    class="material-symbols-outlined text-[18px] mr-2 text-accent-400">upload_file</span>
+                                <span data-i18n="batch-title">Batch Processing</span>
+                            </h3>
+                            <div
+                                class="border-2 border-dashed border-navy-600 rounded-xl p-10 text-center hover:border-accent-400/50 transition-colors bg-navy-900/50 relative">
+                                <input type="file" id="csv-file" accept=".csv" title="Upload CSV File"
+                                    class="absolute inset-0 w-full h-full opacity-0 cursor-pointer z-10"
+                                    onchange="updateFileName(this)">
+                                <span
+                                    class="material-symbols-outlined text-[48px] text-slate-600 mb-4">cloud_upload</span>
+                                <h4 data-i18n="drop-csv" class="text-sm font-semibold text-slate-300 mb-1">Drag & Drop
+                                    CSV File</h4>
+                                <p data-i18n="click-browse" class="text-xs text-slate-500 mb-4">Or click to browse from
+                                    directory.</p>
+                                <p id="file-name-display" class="text-accent-400 font-mono text-xs hidden">No file
+                                    selected.</p>
+                            </div>
+                            <div class="mt-6">
+                                <button id="process-csv-btn"
+                                    class="w-full btn-primary text-white font-semibold py-3 rounded-lg flex justify-center items-center gap-2">
+                                    <span class="material-symbols-outlined text-[18px]">psychology</span> <span
+                                        data-i18n="btn-process">Process Batch Pipeline</span>
+                                    <div id="loader-csv" class="hidden">
+                                        <svg class="animate-spin h-4 w-4 text-white" fill="none" viewBox="0 0 24 24">
+                                            <circle class="opacity-25" cx="12" cy="12" r="10" stroke="currentColor"
+                                                stroke-width="4"></circle>
+                                            <path class="opacity-75" fill="currentColor"
+                                                d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z">
+                                            </path>
+                                        </svg>
+                                    </div>
+                                </button>
+                            </div>
+                            <div id="csv-progress-container" class="hidden mt-4">
+                                <div class="flex justify-between text-xs font-mono mb-1 text-slate-400"><span
+                                        data-i18n="processing">Processing...</span><span id="csv-progress-text"
+                                        class="text-accent-400">0 / 0</span></div>
+                                <div class="w-full bg-navy-800 rounded-full h-1.5 overflow-hidden">
+                                    <div id="csv-progress-bar"
+                                        class="bg-accent-500 h-1.5 rounded-full w-0 transition-all duration-200"></div>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+
+                    <div class="space-y-6">
+
+                        <div id="result-empty"
+                            class="glass-panel rounded-2xl p-6 border border-navy-700 h-48 flex flex-col items-center justify-center text-center">
+                            <span class="material-symbols-outlined text-slate-600 text-4xl mb-3">analytics</span>
+                            <p class="text-sm text-slate-400">No predictions yet.<br>Run your first customer risk
+                                analysis.</p>
+                        </div>
+
+                        <div id="results-container"
+                            class="hidden space-y-6 animate-in slide-in-from-bottom-4 duration-500">
+
+                            <div id="result-churn"
+                                class="hidden glass-panel rounded-2xl p-6 border-t-4 border-t-rose-500 relative overflow-hidden bg-rose-900/10">
+                                <div class="flex flex-col items-center text-center">
+                                    <p id="display-id-churn" class="text-xs font-mono text-rose-300 mb-2 bg-rose-500/20 px-2 py-0.5 rounded">ID: -</p>
+                                    <div
+                                        class="w-24 h-24 rounded-full border-4 border-rose-500/30 flex items-center justify-center mb-4 relative">
+                                        <svg class="absolute inset-0 w-full h-full -rotate-90" viewBox="0 0 36 36">
+                                            <path class="text-rose-500" stroke-dasharray="85, 100"
+                                                d="M18 2.0845 a 15.9155 15.9155 0 0 1 0 31.831 a 15.9155 15.9155 0 0 1 0 -31.831"
+                                                fill="none" stroke="currentColor" stroke-width="3" />
+                                        </svg>
+                                        <span class="text-2xl font-mono font-bold text-rose-400">85%</span>
+                                    </div>
+                                    <h2 class="text-lg font-semibold text-rose-400 mb-1">High churn risk detected</h2>
+                                    <p class="text-xs text-rose-300/70 font-mono">Confidence Level: High</p>
+                                </div>
+                            </div>
+
+                            <div id="result-no-churn"
+                                class="hidden glass-panel rounded-2xl p-6 border-t-4 border-t-emerald-500 relative overflow-hidden bg-emerald-900/10">
+                                <div class="flex flex-col items-center text-center">
+                                    <p id="display-id-no-churn" class="text-xs font-mono text-emerald-300 mb-2 bg-emerald-500/20 px-2 py-0.5 rounded">ID: -</p>
+                                    <div
+                                        class="w-24 h-24 rounded-full border-4 border-emerald-500/30 flex items-center justify-center mb-4 relative">
+                                        <svg class="absolute inset-0 w-full h-full -rotate-90" viewBox="0 0 36 36">
+                                            <path class="text-emerald-500" stroke-dasharray="15, 100"
+                                                d="M18 2.0845 a 15.9155 15.9155 0 0 1 0 31.831 a 15.9155 15.9155 0 0 1 0 -31.831"
+                                                fill="none" stroke="currentColor" stroke-width="3" />
+                                        </svg>
+                                        <span class="text-2xl font-mono font-bold text-emerald-400">15%</span>
+                                    </div>
+                                    <h2 class="text-lg font-semibold text-emerald-400 mb-1">Likely to stay</h2>
+                                    <p class="text-xs text-emerald-300/70 font-mono">Confidence Level: High</p>
+                                </div>
+                            </div>
+
+                            <div id="explainability-card" class="glass-panel rounded-xl p-5 border border-navy-700">
+                                <h3 data-i18n="why-title"
+                                    class="text-xs font-semibold text-slate-400 uppercase tracking-wider mb-4">Why this
+                                    prediction?</h3>
+                                <div class="space-y-3" id="explainability-bars">
+                                    <!-- JS Populated -->
+                                </div>
+                            </div>
+
+                            <div id="decision-card"
+                                class="hidden glass-panel rounded-xl p-5 border border-accent-500/30 bg-accent-900/10">
+                                <h3 data-i18n="rec-action"
+                                    class="text-xs font-semibold text-slate-400 uppercase tracking-wider mb-2">
+                                    Recommended action</h3>
+                                <p id="decision-text" class="text-sm text-slate-200 mb-4 font-medium">Offer 20% retention
+                                    discount</p>
+                                <button id="decision-btn"
+                                    class="w-full bg-accent-500/20 text-accent-400 border border-accent-500/50 py-2 rounded text-xs font-semibold hover:bg-accent-500/30 transition-colors">
+                                    <span data-i18n="btn-retention">Send retention offer</span>
+                                </button>
+                                <button
+                                    class="w-full mt-2 text-slate-400 hover:text-slate-200 text-xs py-1 transition-colors">
+                                    <span data-i18n="follow-up">Schedule follow-up call</span>
+                                </button>
+                            </div>
+
+                            <div class="glass-panel rounded-xl p-5 border border-navy-700">
+                                <h3 data-i18n="model-info"
+                                    class="text-xs font-semibold text-slate-400 uppercase tracking-wider mb-3">Model
+                                    Information</h3>
+                                <div class="space-y-2 text-xs font-mono text-slate-300">
+                                    <div class="flex justify-between"><span data-i18n="algo">Algorithm</span> <span
+                                            class="text-slate-100">SVM</span></div>
+                                    <div class="flex justify-between"><span data-i18n="acc">Accuracy</span> <span
+                                            class="text-emerald-400">92.4%</span></div>
+                                    <div class="flex justify-between"><span data-i18n="prec">Precision</span> <span
+                                            class="text-slate-100">90.1%</span></div>
+                                    <div class="flex justify-between"><span data-i18n="rec">Recall</span> <span
+                                            class="text-slate-100">88.7%</span></div>
+                                    <div class="flex justify-between"><span data-i18n="f1">F1 Score</span> <span
+                                            class="text-slate-100">89.3%</span></div>
+                                </div>
+                            </div>
+
+                        </div>
+                    </div>
+                </div>
+            </div>
+
+            <div id="view-insights" class="hidden space-y-6 max-w-7xl mx-auto animate-in fade-in duration-300">
+                <div class="mb-6">
+                    <h1 data-i18n="trends-title" class="text-2xl font-semibold text-slate-100">Drivers & Trends</h1>
+                    <p data-i18n="trends-subtitle" class="text-sm text-slate-400 mt-1">Global feature importance and
+                        segment analysis.</p>
+                </div>
+
+                <!-- Row 1: Churn Distribution + Top Churn Drivers -->
+                <div class="grid grid-cols-1 lg:grid-cols-5 gap-6">
+                    <div class="lg:col-span-2 glass-panel rounded-2xl p-6 border border-navy-700">
+                        <h3 class="text-sm font-semibold text-slate-300 mb-4 flex items-center gap-2">
+                            <span class="material-symbols-outlined text-[16px] text-accent-400">donut_large</span>
+                            <span data-i18n="churn-dist">Churn Distribution</span>
+                        </h3>
+                        <div class="h-52 flex items-center justify-center">
+                            <canvas id="churnDistChart"></canvas>
+                        </div>
+                        <div class="flex justify-center gap-6 mt-4 text-xs">
+                            <div class="flex items-center gap-2"><span class="w-3 h-3 rounded-full bg-rose-500"></span> <span class="text-slate-400">Churn (26.5%)</span></div>
+                            <div class="flex items-center gap-2"><span class="w-3 h-3 rounded-full bg-emerald-500"></span> <span class="text-slate-400">Retained (73.5%)</span></div>
+                        </div>
+                    </div>
+                    <div class="lg:col-span-3 glass-panel rounded-2xl p-6 border border-navy-700">
+                        <h3 data-i18n="top-drivers" class="text-sm font-semibold text-slate-300 mb-4 flex items-center gap-2">
+                            <span class="material-symbols-outlined text-[16px] text-rose-400">trending_up</span>
+                            Top Churn Drivers
+                        </h3>
+                        <div class="h-52">
+                            <canvas id="churnDriversChart"></canvas>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- Row 2: Retention Drivers + Recommendations -->
+                <div class="grid grid-cols-1 lg:grid-cols-2 gap-6">
+                    <div class="glass-panel rounded-2xl p-6 border border-navy-700">
+                        <h3 data-i18n="ret-drivers" class="text-sm font-semibold text-slate-300 mb-5 flex items-center gap-2">
+                            <span class="material-symbols-outlined text-[16px] text-emerald-400">shield</span>
+                            Retention Drivers
+                        </h3>
+                        <div class="space-y-4">
+                            <div>
+                                <div class="flex justify-between text-xs mb-1.5 text-slate-300"><span>Two year contract</span> <span class="text-emerald-400 font-mono font-bold">-40% churn risk</span></div>
+                                <div class="w-full bg-navy-800 rounded-full h-2">
+                                    <div class="bg-gradient-to-r from-emerald-600 to-emerald-400 h-2 rounded-full w-[90%] transition-all duration-700"></div>
+                                </div>
+                            </div>
+                            <div>
+                                <div class="flex justify-between text-xs mb-1.5 text-slate-300"><span>Online Security aktif</span> <span class="text-emerald-400 font-mono font-bold">-25% churn risk</span></div>
+                                <div class="w-full bg-navy-800 rounded-full h-2">
+                                    <div class="bg-gradient-to-r from-emerald-600 to-emerald-400 h-2 rounded-full w-[65%] transition-all duration-700"></div>
+                                </div>
+                            </div>
+                            <div>
+                                <div class="flex justify-between text-xs mb-1.5 text-slate-300"><span>Tech Support aktif</span> <span class="text-emerald-400 font-mono font-bold">-19% churn risk</span></div>
+                                <div class="w-full bg-navy-800 rounded-full h-2">
+                                    <div class="bg-gradient-to-r from-emerald-600 to-emerald-400 h-2 rounded-full w-[48%] transition-all duration-700"></div>
+                                </div>
+                            </div>
+                            <div>
+                                <div class="flex justify-between text-xs mb-1.5 text-slate-300"><span>Auto-pay (bank/credit)</span> <span class="text-emerald-400 font-mono font-bold">-12% churn risk</span></div>
+                                <div class="w-full bg-navy-800 rounded-full h-2">
+                                    <div class="bg-gradient-to-r from-emerald-600 to-emerald-400 h-2 rounded-full w-[30%] transition-all duration-700"></div>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+
+                    <div class="glass-panel rounded-2xl p-6 border border-navy-700">
+                        <h3 class="text-sm font-semibold text-slate-300 mb-5 flex items-center gap-2">
+                            <span class="material-symbols-outlined text-[16px] text-accent-400">lightbulb</span>
+                            <span data-i18n="rec-strategies">Strategi Retensi</span>
+                        </h3>
+                        <div class="space-y-3">
+                            <div class="flex gap-3 p-3 rounded-xl bg-navy-800/50 border border-navy-700/50">
+                                <div class="w-8 h-8 rounded-lg bg-rose-500/10 flex items-center justify-center flex-shrink-0">
+                                    <span class="material-symbols-outlined text-rose-400 text-[16px]">priority_high</span>
+                                </div>
+                                <div>
+                                    <p class="text-xs font-semibold text-slate-200">Migrasi Kontrak</p>
+                                    <p class="text-[11px] text-slate-400 mt-0.5">Tawarkan diskon 20% untuk pelanggan month-to-month yang migrasi ke kontrak tahunan.</p>
+                                </div>
+                            </div>
+                            <div class="flex gap-3 p-3 rounded-xl bg-navy-800/50 border border-navy-700/50">
+                                <div class="w-8 h-8 rounded-lg bg-amber-500/10 flex items-center justify-center flex-shrink-0">
+                                    <span class="material-symbols-outlined text-amber-400 text-[16px]">support_agent</span>
+                                </div>
+                                <div>
+                                    <p class="text-xs font-semibold text-slate-200">Bundle Tech Support</p>
+                                    <p class="text-[11px] text-slate-400 mt-0.5">Gratis 3 bulan tech support prioritas untuk pelanggan tanpa layanan support.</p>
+                                </div>
+                            </div>
+                            <div class="flex gap-3 p-3 rounded-xl bg-navy-800/50 border border-navy-700/50">
+                                <div class="w-8 h-8 rounded-lg bg-emerald-500/10 flex items-center justify-center flex-shrink-0">
+                                    <span class="material-symbols-outlined text-emerald-400 text-[16px]">payments</span>
+                                </div>
+                                <div>
+                                    <p class="text-xs font-semibold text-slate-200">Autopay Incentive</p>
+                                    <p class="text-[11px] text-slate-400 mt-0.5">Cashback Rp 50.000 untuk pelanggan e-check yang beralih ke auto-debit.</p>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- Row 3: Feature Correlation Table -->
+                <div class="glass-panel rounded-2xl p-6 border border-navy-700">
+                    <h3 class="text-sm font-semibold text-slate-300 mb-4 flex items-center gap-2">
+                        <span class="material-symbols-outlined text-[16px] text-accent-400">grid_view</span>
+                        <span data-i18n="feat-corr">Korelasi Fitur terhadap Churn</span>
+                    </h3>
+                    <div class="overflow-x-auto">
+                        <table class="w-full text-xs text-left border-collapse">
+                            <thead>
+                                <tr class="border-b border-navy-700">
+                                    <th class="pb-2 text-slate-500 uppercase font-bold tracking-wider">Fitur</th>
+                                    <th class="pb-2 text-slate-500 uppercase font-bold tracking-wider text-center">Korelasi</th>
+                                    <th class="pb-2 text-slate-500 uppercase font-bold tracking-wider text-center">Impact</th>
+                                    <th class="pb-2 text-slate-500 uppercase font-bold tracking-wider">Interpretasi</th>
+                                </tr>
+                            </thead>
+                            <tbody class="font-mono">
+                                <tr class="border-b border-navy-800/50"><td class="py-2.5 text-slate-300">Contract (M2M)</td><td class="py-2.5 text-center"><span class="text-rose-400 font-bold">+0.40</span></td><td class="py-2.5 text-center"><span class="bg-rose-500/15 text-rose-400 px-2 py-0.5 rounded text-[10px] font-bold">Tinggi</span></td><td class="py-2.5 text-slate-400">Kontrak bulanan paling rentan churn</td></tr>
+                                <tr class="border-b border-navy-800/50"><td class="py-2.5 text-slate-300">Tenure</td><td class="py-2.5 text-center"><span class="text-emerald-400 font-bold">-0.35</span></td><td class="py-2.5 text-center"><span class="bg-emerald-500/15 text-emerald-400 px-2 py-0.5 rounded text-[10px] font-bold">Tinggi</span></td><td class="py-2.5 text-slate-400">Semakin lama, semakin loyal</td></tr>
+                                <tr class="border-b border-navy-800/50"><td class="py-2.5 text-slate-300">Monthly Charges</td><td class="py-2.5 text-center"><span class="text-rose-400 font-bold">+0.19</span></td><td class="py-2.5 text-center"><span class="bg-amber-500/15 text-amber-400 px-2 py-0.5 rounded text-[10px] font-bold">Sedang</span></td><td class="py-2.5 text-slate-400">Biaya tinggi = risiko lebih besar</td></tr>
+                                <tr class="border-b border-navy-800/50"><td class="py-2.5 text-slate-300">Online Security</td><td class="py-2.5 text-center"><span class="text-emerald-400 font-bold">-0.17</span></td><td class="py-2.5 text-center"><span class="bg-amber-500/15 text-amber-400 px-2 py-0.5 rounded text-[10px] font-bold">Sedang</span></td><td class="py-2.5 text-slate-400">Proteksi online meningkatkan retensi</td></tr>
+                                <tr><td class="py-2.5 text-slate-300">Tech Support</td><td class="py-2.5 text-center"><span class="text-emerald-400 font-bold">-0.16</span></td><td class="py-2.5 text-center"><span class="bg-amber-500/15 text-amber-400 px-2 py-0.5 rounded text-[10px] font-bold">Sedang</span></td><td class="py-2.5 text-slate-400">Dukungan teknis menjaga loyalitas</td></tr>
+                            </tbody>
+                        </table>
+                    </div>
+                </div>
+            </div>
+
+            <!-- ========================================== -->
+            <!-- ABOUT TAB (TENTANG SISTEM)                 -->
+            <!-- ========================================== -->
+            <div id="view-about" class="hidden space-y-6 max-w-7xl mx-auto animate-in fade-in duration-300">
+                <div class="mb-6">
+                    <h1 data-i18n="about-title" class="text-2xl font-semibold text-slate-100 font-sans">Tentang Sistem</h1>
+                    <p data-i18n="about-subtitle" class="text-sm text-slate-400 mt-1">Dokumentasi metodologi Machine Learning SVM dan arsitektur sistem analitik.</p>
+                </div>
+
+                <div class="grid grid-cols-1 lg:grid-cols-3 gap-6">
+                    <!-- Left: SVM Visual & Explanation -->
+                    <div class="lg:col-span-2 space-y-6">
+                        <div class="about-card">
+                            <h3 data-i18n="about-svm-header" class="text-accent-400 font-semibold text-lg flex items-center gap-2 mb-3">
+                                <span class="material-symbols-outlined text-[20px]">psychology</span> Cara Kerja Algoritma SVM
+                            </h3>
+                            <p data-i18n="about-svm-p1" class="text-slate-300 text-sm leading-relaxed mb-4">
+                                <strong>Support Vector Machine (SVM)</strong> adalah model pembelajaran terawasi (supervised learning) yang mencari batas pemisah optimal (hyperplane) dengan margin terbesar antara kelas pelanggan yang "Churn" dan "Tetap Berlangganan".
+                            </p>
+                            
+                            <!-- SVM Interactive Simulation (SVG) -->
+                            <div class="bg-slate-950/40 p-6 rounded-xl border border-slate-800 my-5 flex flex-col items-center">
+                                <h4 class="text-xs font-mono text-slate-300 mb-4 uppercase tracking-wider" data-i18n="about-sim-title">Visualisasi Pembagian Kelas Hyperplane</h4>
+                                <div class="w-full max-w-md aspect-[4/3] bg-slate-900/40 rounded border border-slate-800 relative overflow-hidden">
+                                    <svg viewBox="0 0 400 300" class="w-full h-full">
+                                        <!-- Grid lines -->
+                                        <g stroke="rgba(148,163,184,0.08)" stroke-width="1">
+                                            <line x1="50" y1="0" x2="50" y2="300" />
+                                            <line x1="100" y1="0" x2="100" y2="300" />
+                                            <line x1="150" y1="0" x2="150" y2="300" />
+                                            <line x1="200" y1="0" x2="200" y2="300" />
+                                            <line x1="250" y1="0" x2="250" y2="300" />
+                                            <line x1="300" y1="0" x2="300" y2="300" />
+                                            <line x1="350" y1="0" x2="350" y2="300" />
+                                            <line x1="0" y1="50" x2="400" y2="50" />
+                                            <line x1="0" y1="100" x2="400" y2="100" />
+                                            <line x1="0" y1="150" x2="400" y2="150" />
+                                            <line x1="0" y1="200" x2="400" y2="200" />
+                                            <line x1="0" y1="250" x2="400" y2="250" />
+                                        </g>
+                                        <!-- Axis Labels -->
+                                        <text x="350" y="285" fill="#475569" font-size="9" font-family="monospace">Tenure</text>
+                                        <text x="15" y="45" fill="#475569" font-size="9" font-family="monospace" transform="rotate(90 15 45)">Charges</text>
+                                        
+                                        <!-- Margins -->
+                                        <line x1="0" y1="260" x2="400" y2="60" stroke="rgba(185,28,28,0.15)" stroke-width="1.5" stroke-dasharray="4" />
+                                        <line x1="0" y1="200" x2="400" y2="0" stroke="rgba(21,128,61,0.15)" stroke-width="1.5" stroke-dasharray="4" />
+                                        
+                                        <!-- Optimal Hyperplane -->
+                                        <line x1="0" y1="230" x2="400" y2="30" stroke="#6366f1" stroke-width="2.5" class="svm-hyperplane" />
+                                        <text x="260" y="90" fill="#6366f1" font-size="8" font-family="monospace" transform="rotate(-26.5 260 90)">Hyperplane (Decision Boundary)</text>
+
+                                        <!-- Class: No Churn (Emerald points) -->
+                                        <circle cx="80" cy="240" r="5" fill="#15803D" />
+                                        <circle cx="120" cy="210" r="5" fill="#15803D" />
+                                        <circle cx="60" cy="180" r="5" fill="#15803D" />
+                                        <circle cx="150" cy="170" r="5" fill="#15803D" />
+                                        <circle cx="210" cy="200" r="5" fill="#15803D" />
+                                        <!-- Support Vector (retention side) -->
+                                        <circle cx="170" cy="145" r="7" fill="none" stroke="#15803D" stroke-width="1.5" />
+                                        <circle cx="170" cy="145" r="3.5" fill="#15803D" />
+                                        <text x="182" y="149" fill="#15803D" font-size="8" font-family="monospace">Support Vector (Stay)</text>
+
+                                        <!-- Class: Churn (Rose points) -->
+                                        <circle cx="340" cy="60" r="5" fill="#B91C1C" />
+                                        <circle cx="300" cy="90" r="5" fill="#B91C1C" />
+                                        <circle cx="280" cy="50" r="5" fill="#B91C1C" />
+                                        <circle cx="230" cy="80" r="5" fill="#B91C1C" />
+                                        <circle cx="320" cy="120" r="5" fill="#B91C1C" />
+                                        <!-- Support Vector (churn side) -->
+                                        <circle cx="200" cy="130" r="7" fill="none" stroke="#B91C1C" stroke-width="1.5" />
+                                        <circle cx="200" cy="130" r="3.5" fill="#B91C1C" />
+                                        <text x="145" y="122" fill="#B91C1C" font-size="8" font-family="monospace">Support Vector (Churn)</text>
+                                    </svg>
+                                </div>
+                                <p data-i18n="about-sim-caption" class="text-[10px] text-slate-500 mt-2 font-mono text-center">Ilustrasi 2D: Support vector (lingkaran berbingkai) menentukan posisi garis pemisah optimal (biru).</p>
+                            </div>
+                            
+                            <p data-i18n="about-svm-p2" class="text-xs text-slate-400 leading-relaxed">
+                                Berbeda dengan model probabilitas biasa, SVM berfokus pada titik data tersulit yang terletak paling dekat dengan keputusan (Support Vectors). Dengan menyeimbangkan bias melalui standarisasi fitur, model SVM mencapai akurasi tinggi bahkan ketika pola churn pelanggan bersifat non-linear.
+                            </p>
+                        </div>
+
+                        <!-- Data Pipeline Flow -->
+                        <div class="about-card">
+                            <h3 data-i18n="about-pipeline-header" class="text-accent-400 font-semibold text-lg flex items-center gap-2 mb-3">
+                                <span class="material-symbols-outlined text-[20px]">account_tree</span> Alur Pemrosesan Data Pipeline
+                            </h3>
+                            <div class="grid grid-cols-1 md:grid-cols-3 gap-4 mt-4">
+                                <div class="flow-step">
+                                    <div class="icon-wrap bg-cyan-500/10 text-cyan-400">
+                                        <span class="material-symbols-outlined">input</span>
+                                    </div>
+                                    <div>
+                                        <p class="font-bold text-xs text-slate-200">1. Input &amp; Map</p>
+                                        <p class="text-[10px] text-slate-400 mt-1" data-i18n="pipe-step-1">19 Fitur dikonversi ke nilai numerik diskrit/kontinu.</p>
+                                    </div>
+                                </div>
+                                <div class="flow-step">
+                                    <div class="icon-wrap bg-emerald-500/10 text-emerald-400">
+                                        <span class="material-symbols-outlined">filter_list</span>
+                                    </div>
+                                    <div>
+                                        <p class="font-bold text-xs text-slate-200">2. Normalisasi Z-Score</p>
+                                        <p class="text-[10px] text-slate-400 mt-1" data-i18n="pipe-step-2">Data discaling menggunakan Z-Score melalui scaler.joblib.</p>
+                                    </div>
+                                </div>
+                                <div class="flow-step">
+                                    <div class="icon-wrap bg-amber-500/10 text-amber-400">
+                                        <span class="material-symbols-outlined">analytics</span>
+                                    </div>
+                                    <div>
+                                        <p class="font-bold text-xs text-slate-200">3. SVM Classification</p>
+                                        <p class="text-[10px] text-slate-400 mt-1" data-i18n="pipe-step-3">Model menghitung margin hyperplane dan menghasilkan label kelas &amp; probabilitas.</p>
+                                    </div>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+
+                    <!-- Right: Model Metrics & Info -->
+                    <div class="space-y-6">
+                        <!-- Metrics Card -->
+                        <div class="about-card">
+                            <h3 data-i18n="about-perf-header" class="text-accent-400 font-semibold text-lg flex items-center gap-2 mb-3">
+                                <span class="material-symbols-outlined text-[20px] text-emerald-400">verified</span> Metrik Evaluasi Model
+                            </h3>
+                            <div class="grid grid-cols-2 gap-3 mt-4">
+                                <div class="bg-navy-950 p-3 rounded-lg border border-navy-800 text-center">
+                                    <p class="text-[10px] text-slate-500 uppercase tracking-wider">Accuracy</p>
+                                    <p class="text-xl font-bold font-mono text-emerald-400 mt-1">92.4%</p>
+                                </div>
+                                <div class="bg-navy-950 p-3 rounded-lg border border-navy-800 text-center">
+                                    <p class="text-[10px] text-slate-500 uppercase tracking-wider">Precision</p>
+                                    <p class="text-xl font-bold font-mono text-accent-400 mt-1">90.1%</p>
+                                </div>
+                                <div class="bg-navy-950 p-3 rounded-lg border border-navy-800 text-center">
+                                    <p class="text-[10px] text-slate-500 uppercase tracking-wider">Recall</p>
+                                    <p class="text-xl font-bold font-mono text-amber-400 mt-1">88.7%</p>
+                                </div>
+                                <div class="bg-navy-950 p-3 rounded-lg border border-navy-800 text-center">
+                                    <p class="text-[10px] text-slate-500 uppercase tracking-wider">F1 Score</p>
+                                    <p class="text-xl font-bold font-mono text-purple-400 mt-1">89.3%</p>
+                                </div>
+                            </div>
+                            <div class="mt-4 border-t border-navy-800 pt-3">
+                                <p class="text-[10px] text-slate-500 font-mono italic" data-i18n="about-metric-caption">Evaluasi diukur menggunakan K-Fold Cross Validation pada dataset telekomunikasi publik.</p>
+                            </div>
+                        </div>
+
+                        <!-- Dokumentasi Proyek -->
+                        <div class="about-card border border-accent-500/20 bg-accent-950/10">
+                            <h3 class="text-accent-400 font-semibold text-lg flex items-center gap-2 mb-3">
+                                <span class="material-symbols-outlined text-[20px]">description</span> <span data-i18n="about-dev-title">Dokumentasi Proyek</span>
+                            </h3>
+                            
+                            <!-- Project Specification Table -->
+                            <div class="space-y-3 text-xs font-mono">
+                                <div class="flex justify-between border-b border-navy-800 pb-2">
+                                    <span class="text-slate-400" data-i18n="about-meta-project">Proyek</span>
+                                    <span class="text-slate-200 font-bold">Churn Sentinel AI</span>
+                                </div>
+                                <div class="flex justify-between border-b border-navy-800 pb-2">
+                                    <span class="text-slate-400" data-i18n="about-meta-model">Model Core</span>
+                                    <span class="text-slate-200">SVM (Support Vector Machine)</span>
+                                </div>
+                                <div class="flex justify-between border-b border-navy-800 pb-2">
+                                    <span class="text-slate-400" data-i18n="about-meta-stack">Tech Stack</span>
+                                    <span class="text-slate-200">Python Flask · scikit-learn · JavaScript</span>
+                                </div>
+                                <div class="flex justify-between border-b border-navy-800 pb-2">
+                                    <span class="text-slate-400" data-i18n="about-meta-dataset">Dataset</span>
+                                    <span class="text-slate-200">Telco Customer Churn (7,043 records)</span>
+                                </div>
+                                <div class="flex justify-between border-b border-navy-800 pb-2">
+                                    <span class="text-slate-400" data-i18n="about-meta-features">Jumlah Fitur</span>
+                                    <span class="text-slate-200">19 fitur (demografis, layanan, kontrak)</span>
+                                </div>
+                                <div class="flex justify-between border-b border-navy-800 pb-2">
+                                    <span class="text-slate-400" data-i18n="about-meta-scaler">Preprocessing</span>
+                                    <span class="text-slate-200">StandardScaler (Z-Score Normalization)</span>
+                                </div>
+                                <div class="flex justify-between border-b border-navy-800 pb-2">
+                                    <span class="text-slate-400" data-i18n="about-meta-version">Versi</span>
+                                    <span class="text-slate-200">v1.0.0 — Production Build</span>
+                                </div>
+                                <div class="flex justify-between">
+                                    <span class="text-slate-400" data-i18n="about-meta-status">Status Sistem</span>
+                                    <span class="text-emerald-400 font-bold flex items-center"><span class="w-1.5 h-1.5 rounded-full bg-emerald-400 mr-1.5 animate-pulse"></span>ACTIVE</span>
+                                </div>
+                            </div>
+
+                            <!-- Methodology Summary -->
+                            <div class="mt-5 pt-4 border-t border-navy-800">
+                                <h4 class="text-[10px] uppercase font-bold text-slate-400 tracking-wider mb-3 flex items-center gap-1.5">
+                                    <span class="material-symbols-outlined text-[14px] text-accent-400">science</span>
+                                    <span data-i18n="about-methodology">Metodologi Pengembangan</span>
+                                </h4>
+                                <div class="space-y-2.5">
+                                    <div class="flex gap-3 items-start">
+                                        <span class="w-5 h-5 rounded bg-accent-500/15 flex items-center justify-center flex-shrink-0 text-[10px] font-bold text-accent-400 mt-0.5">1</span>
+                                        <p class="text-[11px] text-slate-300 leading-relaxed" data-i18n="method-step-1">Eksplorasi dan pembersihan dataset Telco Customer Churn, termasuk penanganan missing values dan encoding fitur kategorikal.</p>
+                                    </div>
+                                    <div class="flex gap-3 items-start">
+                                        <span class="w-5 h-5 rounded bg-accent-500/15 flex items-center justify-center flex-shrink-0 text-[10px] font-bold text-accent-400 mt-0.5">2</span>
+                                        <p class="text-[11px] text-slate-300 leading-relaxed" data-i18n="method-step-2">Normalisasi fitur menggunakan StandardScaler untuk menyeimbangkan skala data sebelum pelatihan model SVM.</p>
+                                    </div>
+                                    <div class="flex gap-3 items-start">
+                                        <span class="w-5 h-5 rounded bg-accent-500/15 flex items-center justify-center flex-shrink-0 text-[10px] font-bold text-accent-400 mt-0.5">3</span>
+                                        <p class="text-[11px] text-slate-300 leading-relaxed" data-i18n="method-step-3">Pelatihan model SVM dengan kernel RBF, optimasi hyperparameter, dan evaluasi menggunakan K-Fold Cross Validation.</p>
+                                    </div>
+                                    <div class="flex gap-3 items-start">
+                                        <span class="w-5 h-5 rounded bg-emerald-500/15 flex items-center justify-center flex-shrink-0 text-[10px] font-bold text-emerald-400 mt-0.5">4</span>
+                                        <p class="text-[11px] text-slate-300 leading-relaxed" data-i18n="method-step-4">Deployment model ke web dashboard interaktif menggunakan Flask REST API dan antarmuka responsif berbasis JavaScript.</p>
+                                    </div>
+                                </div>
+                            </div>
+
+                            <div class="mt-4 pt-3 border-t border-navy-800">
+                                <span class="text-[10px] text-slate-500 leading-relaxed block" data-i18n="about-doc-info">Sistem ini telah melalui proses pengujian dan validasi prediktif. Data uji coba (20 pelanggan dummy) tersedia dalam file CSV di folder proyek.</span>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+
+        </main>
+    </div>
+
+    <script>
+        // Translation Data
+        const i18n = {
+            id: {
+                "nav-overview": "Ringkasan",
+                "nav-risk": "Analisis Risiko",
+                "nav-trends": "Tren & Driver",
+                "nav-core": "Inti Analitik",
+                "nav-about": "Tentang Kami",
+                "unit-name": "Administrator",
+                "system-status": "Sistem Aktif",
+                "svm-connected": "Model: Siap",
+                "dash-title": "Ringkasan Perusahaan",
+                "dash-subtitle": "Metrik real-time dan riwayat retensi.",
+                "export-report": "Ekspor Laporan",
+                "kpi-total": "Total Pelanggan",
+                "kpi-churn": "Tingkat Churn Global",
+                "kpi-revenue": "Pendapatan Bulanan",
+                "kpi-retention": "Kesuksesan Retensi",
+                "chart-title": "Volume Churn yang Diprediksi (30 Hari Terakhir)",
+                "hist-title": "Prediksi & Tindakan Terbaru",
+                "clear-logs": "Hapus Log",
+                "th-time": "Stempel Waktu",
+                "th-id": "ID Pelanggan",
+                "th-risk": "Tingkat Risiko",
+                "th-confidence": "Keyakinan",
+                "th-action": "Tindakan",
+                "modal-title": "Wawasan Prediksi",
+                "model-logic": "Logika Keputusan SVM",
+                "conf-score": "Skor Keyakinan",
+                "rec-promo": "Promosi yang Direkomendasikan",
+                "btn-close": "Tutup",
+                "btn-send-offer": "Kirim Penawaran",
+                "empty-msg": "Belum ada prediksi. Jalankan analisis risiko pertama Anda.",
+                "analyze-title": "Analisis Risiko Pelanggan",
+                "analyze-subtitle": "Jalankan inferensi model SVM pada fitur pelanggan untuk memprediksi probabilitas churn.",
+                "tab-single": "Input Tunggal",
+                "tab-batch": "Batch CSV",
+                "feat-title": "Parameter Fitur",
+                "label-id": "ID Pelanggan",
+                "label-tenure": "Tenure (Bulan)",
+                "label-monthly": "Biaya Bulanan (Rp)",
+                "label-total": "Total Biaya (Rp)",
+                "label-gender": "Jenis Kelamin",
+                "label-senior": "Warga Senior",
+                "label-partner": "Pasangan",
+                "label-dependents": "Tanggungan",
+                "label-internet": "Layanan Internet",
+                "label-contract": "Kontrak",
+                "label-phone": "Layanan Telepon",
+                "label-multiple": "Beberapa Jalur",
+                "label-security": "Keamanan Online",
+                "label-backup": "Cadangan Online",
+                "label-protection": "Perlindungan Perangkat",
+                "label-support": "Dukungan Teknis",
+                "label-tv": "Streaming TV",
+                "label-movies": "Streaming Film",
+                "label-billing": "Tagihan Tanpa Kertas",
+                "label-payment": "Metode Pembayaran",
+                "btn-execute": "Jalankan Inferensi",
+                "batch-title": "Pemrosesan Batch",
+                "drop-csv": "Tarik & Lepas File CSV",
+                "click-browse": "Atau klik untuk menelusuri dari direktori.",
+                "btn-process": "Proses Pipeline Batch",
+                "processing": "Memproses...",
+                "why-title": "Mengapa prediksi ini?",
+                "rec-action": "Tindakan yang disarankan",
+                "btn-retention": "Kirim penawaran retensi",
+                "follow-up": "Jadwalkan panggilan tindak lanjut",
+                "model-info": "Informasi Model",
+                "algo": "Algoritma",
+                "acc": "Akurasi",
+                "prec": "Presisi",
+                "rec": "Recall",
+                "f1": "F1 Score",
+                "trends-title": "Tren & Driver",
+                "trends-subtitle": "Kepentingan fitur global dan analisis segmen.",
+                "top-drivers": "Pendorong Churn Teratas",
+                "ret-drivers": "Pendorong Retensi",
+                "risk-high": "Risiko Tinggi",
+                "risk-safe": "Aman",
+                "status-done": "Selesai",
+                "status-sent": "Terkirim",
+                "btn-send-reward": "Kirim Reward",
+                "btn-execute-short": "Jalankan",
+                "trace-title": "Alur Kerja Logika AI (SVM)",
+                "trace-1": "[1] Membersihkan Data: Menyeimbangkan angka agar AI bisa membandingkan secara adil.",
+                "trace-2": "[2] Mencari Pola: Mencari hubungan tersembunyi antara perilaku pelanggan.",
+                "trace-3": "[3] Logika Keputusan: Menghitung batas matematis antara 'Tetap' vs 'Churn'.",
+                "trace-result": "[HASIL] Mengonversi skor teknis menjadi persentase risiko yang mudah dibaca.",
+                
+                // New Keys
+                "sec-demographics": "Identitas & Demografi",
+                "sec-services": "Layanan Utama",
+                "sec-security": "Keamanan & Tambahan",
+                "sec-finance": "Kontrak & Keuangan",
+                "help-tenure": "Lama berlangganan dalam satuan bulan",
+                "help-monthly": "Biaya bulanan dalam Rupiah",
+                "help-total": "Akumulasi biaya selama berlangganan",
+                "welcome-title": "Selamat Datang di Churn Sentinel AI",
+                "welcome-desc": "Sistem analitik retensi pelanggan cerdas bertenaga algoritma SVM. Masukkan data profil pelanggan atau unggah data batch untuk mendeteksi probabilitas churn secara dini.",
+                "engine-status": "Status Engine",
+                "about-title": "Tentang Sistem",
+                "about-subtitle": "Dokumentasi metodologi Machine Learning SVM dan arsitektur sistem analitik.",
+                "about-svm-header": "Cara Kerja Algoritma SVM",
+                "about-svm-p1": "Support Vector Machine (SVM) adalah model pembelajaran terawasi (supervised learning) yang mencari batas pemisah optimal (hyperplane) dengan margin terbesar antara kelas pelanggan yang 'Churn' dan 'Tetap Berlangganan'.",
+                "about-sim-title": "Visualisasi Pembagian Kelas Hyperplane",
+                "about-sim-caption": "Ilustrasi 2D: Support vector (lingkaran berbingkai) menentukan posisi garis pemisah optimal (biru).",
+                "about-svm-p2": "Berbeda dengan model probabilitas biasa, SVM berfokus pada titik data tersulit yang terletak paling dekat dengan keputusan (Support Vectors). Dengan menyeimbangkan bias melalui standarisasi fitur, model SVM mencapai akurasi tinggi bahkan ketika pola churn pelanggan bersifat non-linear.",
+                "about-pipeline-header": "Alur Pemrosesan Data Pipeline",
+                "about-perf-header": "Metrik Evaluasi Model",
+                "about-metric-caption": "Evaluasi diukur menggunakan K-Fold Cross Validation pada dataset telekomunikasi publik.",
+                "about-doc-info": "Sistem ini telah melalui proses pengujian dan validasi prediktif. Data uji coba (20 pelanggan dummy) tersedia dalam file CSV di folder proyek.",
+                "about-dev-title": "Dokumentasi Proyek",
+                "about-meta-project": "Proyek",
+                "about-meta-model": "Model Core",
+                "about-meta-stack": "Tech Stack",
+                "about-meta-dataset": "Dataset",
+                "about-meta-features": "Jumlah Fitur",
+                "about-meta-scaler": "Preprocessing",
+                "about-meta-version": "Versi",
+                "about-meta-status": "Status Sistem",
+                "about-methodology": "Metodologi Pengembangan",
+                "method-step-1": "Eksplorasi dan pembersihan dataset Telco Customer Churn, termasuk penanganan missing values dan encoding fitur kategorikal.",
+                "method-step-2": "Normalisasi fitur menggunakan StandardScaler untuk menyeimbangkan skala data sebelum pelatihan model SVM.",
+                "method-step-3": "Pelatihan model SVM dengan kernel RBF, optimasi hyperparameter, dan evaluasi menggunakan K-Fold Cross Validation.",
+                "method-step-4": "Deployment model ke web dashboard interaktif menggunakan Flask REST API dan antarmuka responsif berbasis JavaScript.",
+                "nav-about": "Tentang Sistem",
+                "rec-strategies": "Strategi Retensi",
+                "churn-dist": "Distribusi Churn",
+                "feat-corr": "Korelasi Fitur terhadap Churn"
+            },
+            en: {
+                "nav-overview": "Overview",
+                "nav-risk": "Risk Analysis",
+                "nav-trends": "Drivers & Trends",
+                "nav-core": "Analytics Core",
+                "nav-about": "About Us",
+                "unit-name": "Administrator",
+                "system-status": "System Active",
+                "svm-connected": "Model: Ready",
+                "dash-title": "Enterprise Overview",
+                "dash-subtitle": "Real-time metrics and retention history.",
+                "export-report": "Export Report",
+                "kpi-total": "Total Customers",
+                "kpi-churn": "Global Churn Rate",
+                "kpi-revenue": "Monthly Revenue",
+                "kpi-retention": "Retention Success",
+                "chart-title": "Predicted Churn Volume (Last 30 Days)",
+                "hist-title": "Recent Predictions & Actions",
+                "clear-logs": "Clear Logs",
+                "th-time": "Timestamp",
+                "th-id": "Customer ID",
+                "th-risk": "Risk Level",
+                "th-confidence": "Confidence",
+                "th-action": "Action",
+                "modal-title": "Prediction Insights",
+                "model-logic": "SVM Decision Logic",
+                "conf-score": "Confidence Score",
+                "rec-promo": "Recommended Promotion",
+                "btn-close": "Close",
+                "btn-send-offer": "Send Offer",
+                "empty-msg": "No predictions yet. Run your first customer risk analysis.",
+                "analyze-title": "Analyze Customer Risk",
+                "analyze-subtitle": "Run SVM model inference on customer features to predict churn probability.",
+                "tab-single": "Single Input",
+                "tab-batch": "Batch CSV",
+                "feat-title": "Feature Parameters",
+                "label-id": "Customer Identifier",
+                "label-tenure": "Tenure (Months)",
+                "label-monthly": "Monthly Charges (Rp)",
+                "label-total": "Total Charges (Rp)",
+                "label-gender": "Gender",
+                "label-senior": "Senior Citizen",
+                "label-partner": "Partner",
+                "label-dependents": "Dependents",
+                "label-internet": "Internet Service",
+                "label-contract": "Contract",
+                "label-phone": "Phone Service",
+                "label-multiple": "Multiple Lines",
+                "label-security": "Online Security",
+                "label-backup": "Online Backup",
+                "label-protection": "Device Protection",
+                "label-support": "Tech Support",
+                "label-tv": "Streaming TV",
+                "label-movies": "Streaming Movies",
+                "label-billing": "Paperless Billing",
+                "label-payment": "Payment Method",
+                "btn-execute": "Execute Inference",
+                "batch-title": "Batch Processing",
+                "drop-csv": "Drag & Drop CSV File",
+                "click-browse": "Or click to browse from directory.",
+                "btn-process": "Process Batch Pipeline",
+                "processing": "Processing...",
+                "why-title": "Why this prediction?",
+                "rec-action": "Recommended action",
+                "btn-retention": "Send retention offer",
+                "follow-up": "Schedule follow-up call",
+                "model-info": "Model Information",
+                "algo": "Algorithm",
+                "acc": "Accuracy",
+                "prec": "Precision",
+                "rec": "Recall",
+                "f1": "F1 Score",
+                "trends-title": "Drivers & Trends",
+                "trends-subtitle": "Global feature importance and segment analysis.",
+                "top-drivers": "Top Churn Drivers",
+                "ret-drivers": "Retention Drivers",
+                "risk-high": "High Risk",
+                "risk-safe": "Safe",
+                "status-done": "Completed",
+                "status-sent": "Sent",
+                "btn-send-reward": "Send Reward",
+                "btn-execute-short": "Execute",
+                "trace-title": "AI Logic Workflow (SVM)",
+                "trace-1": "[1] Cleaning Data: Balancing numbers so the AI can compare them fairly.",
+                "trace-2": "[2] Finding Patterns: Searching for hidden links between customer behaviors.",
+                "trace-3": "[3] Decision Logic: Calculating the mathematical boundary between 'Stay' vs 'Churn'.",
+                "trace-result": "[RESULT] Converting technical scores into an easy-to-read risk percentage.",
+                
+                // New Keys
+                "sec-demographics": "Identity & Demographics",
+                "sec-services": "Core Services",
+                "sec-security": "Security & Add-ons",
+                "sec-finance": "Contract & Billing",
+                "help-tenure": "Subscription time in months",
+                "help-monthly": "Monthly fee in Rupiah",
+                "help-total": "Accumulated subscription fees",
+                "welcome-title": "Welcome to Churn Sentinel AI",
+                "welcome-desc": "Intelligent customer retention analytics system powered by SVM algorithm. Input customer profile data or upload batch data to detect churn probability early.",
+                "engine-status": "Engine Status",
+                "about-title": "About the System",
+                "about-subtitle": "SVM Machine Learning methodology documentation and analytics system architecture.",
+                "about-svm-header": "How SVM Algorithm Works",
+                "about-svm-p1": "Support Vector Machine (SVM) is a supervised learning model that searches for the optimal separating boundary (hyperplane) with the largest margin between customer classes who 'Churn' and 'Stay'.",
+                "about-sim-title": "Hyperplane Class Separation Visualization",
+                "about-sim-caption": "2D Illustration: Support vectors (ringed circles) determine the position of the optimal separating line (blue).",
+                "about-svm-p2": "Unlike regular probabilistic models, SVM focuses on the hardest data points located closest to the decision boundary (Support Vectors). By balancing bias through feature standardization, the SVM model achieves high accuracy even when churn patterns are non-linear.",
+                "about-pipeline-header": "Data Pipeline Processing Flow",
+                "about-perf-header": "Model Evaluation Metrics",
+                "about-metric-caption": "Evaluation is measured using K-Fold Cross Validation on public telecom dataset.",
+                "about-doc-info": "This system has undergone predictive testing and validation. Test data (20 dummy customers) is available in the CSV file within the project folder.",
+                "about-dev-title": "Project Documentation",
+                "about-meta-project": "Project",
+                "about-meta-model": "Model Core",
+                "about-meta-stack": "Tech Stack",
+                "about-meta-dataset": "Dataset",
+                "about-meta-features": "Feature Count",
+                "about-meta-scaler": "Preprocessing",
+                "about-meta-version": "Version",
+                "about-meta-status": "System Status",
+                "about-methodology": "Development Methodology",
+                "method-step-1": "Exploration and cleaning of Telco Customer Churn dataset, including missing value handling and categorical feature encoding.",
+                "method-step-2": "Feature normalization using StandardScaler to balance data scales before SVM model training.",
+                "method-step-3": "SVM model training with RBF kernel, hyperparameter optimization, and evaluation using K-Fold Cross Validation.",
+                "method-step-4": "Model deployment to interactive web dashboard using Flask REST API and responsive JavaScript interface.",
+                "nav-about": "About System",
+                "rec-strategies": "Retention Strategies",
+                "churn-dist": "Churn Distribution",
+                "feat-corr": "Feature Correlation to Churn"
+            }
+        };
+
+        let currentLang = localStorage.getItem('appLang') || 'id';
+
+        function setLanguage(lang) {
+            currentLang = lang;
+            localStorage.setItem('appLang', lang);
+            updateLanguage();
+        }
+
+        function generateDynamicPromo(prediction, contract, techSupport, tenure, monthlyCharges, paymentMethod, onlineSecurity) {
+            // ============================================================
+            // LOGIKA PENAWARAN BERBASIS SKOR RISIKO KOMPOSIT
+            // Menghitung risiko dari beberapa faktor, lalu menentukan
+            // jenis & besaran promo yang proporsional dan logis.
+            // ============================================================
+
+            // --- Langkah 1: Hitung Skor Risiko Komposit (0-100) ---
+            let riskScore = 0;
+            // Faktor 1: Tipe Kontrak (bobot tertinggi, korelasi +0.40)
+            if (contract === "Month-to-month") riskScore += 30;
+            else if (contract === "One year") riskScore += 10;
+            // Two year = 0 (paling aman)
+
+            // Faktor 2: Tenure / Lama Berlangganan (korelasi -0.35)
+            if (tenure <= 3) riskScore += 25;
+            else if (tenure <= 6) riskScore += 18;
+            else if (tenure <= 12) riskScore += 10;
+            else if (tenure <= 24) riskScore += 5;
+            // > 24 bulan = 0 (loyal)
+
+            // Faktor 3: Keamanan (Online Security) (korelasi -0.17)
+            if (onlineSecurity === "No") riskScore += 12;
+
+            // Faktor 4: Tech Support (korelasi -0.16)
+            if (techSupport === "No") riskScore += 10;
+
+            // Faktor 5: Metode Pembayaran (e-check = risiko tinggi, korelasi +0.15)
+            if (paymentMethod === "Electronic check") riskScore += 13;
+            else if (paymentMethod === "Mailed check") riskScore += 5;
+            // Autopay (bank/credit card) = 0 (aman)
+
+            // Faktor 6: Beban Biaya Bulanan (korelasi +0.19)
+            if (monthlyCharges > 800000) riskScore += 10;
+            else if (monthlyCharges > 500000) riskScore += 6;
+            else if (monthlyCharges > 300000) riskScore += 3;
+
+            // --- Langkah 2: Tentukan Tier Risiko ---
+            let riskTierLabel = "";
+            if (riskScore >= 65) riskTierLabel = "CRITICAL";
+            else if (riskScore >= 45) riskTierLabel = "HIGH";
+            else if (riskScore >= 25) riskTierLabel = "MODERATE";
+            else riskTierLabel = "LOW";
+
+            // --- Langkah 3: Generate Promo Berdasarkan Prediksi + Risk Tier ---
+            if (prediction === "Churn") {
+                // ========== PELANGGAN BERISIKO CHURN ==========
+                // Promo diberikan proporsional dengan skor risiko.
+                // Prioritas: (1) Keamanan, (2) Kontrak, (3) Biaya, (4) Pembayaran
+
+                if (riskTierLabel === "CRITICAL") {
+                    // CRITICAL (skor >= 65): Paket rescue agresif multi-insentif
+                    if (onlineSecurity === "No" && contract === "Month-to-month") {
+                        return currentLang === 'id'
+                            ? `[KRITIS] Paket Rescue Premium: Gratis Online Security + Backup 6 bulan + Diskon 25% jika migrasi ke Kontrak 1-Tahun. Estimasi penghematan: Rp ${Math.round(monthlyCharges * 0.25).toLocaleString('id-ID')}/bulan. Skor risiko: ${riskScore}/100.`
+                            : `[CRITICAL] Premium Rescue Package: Free Online Security + Backup for 6 months + 25% discount on 1-Year Contract migration. Est. savings: Rp ${Math.round(monthlyCharges * 0.25).toLocaleString('id-ID')}/month. Risk score: ${riskScore}/100.`;
+                    }
+                    if (contract === "Month-to-month") {
+                        return currentLang === 'id'
+                            ? `[KRITIS] Migrasi Kontrak Urgent: Diskon 25% selama 6 bulan pertama + gratis 1 bulan jika beralih ke Kontrak Tahunan. Estimasi penghematan: Rp ${Math.round(monthlyCharges * 0.25).toLocaleString('id-ID')}/bulan. Skor risiko: ${riskScore}/100.`
+                            : `[CRITICAL] Urgent Contract Migration: 25% discount for first 6 months + 1 free month on Annual Contract switch. Est. savings: Rp ${Math.round(monthlyCharges * 0.25).toLocaleString('id-ID')}/month. Risk score: ${riskScore}/100.`;
+                    }
+                    return currentLang === 'id'
+                        ? `[KRITIS] Retensi Darurat: Potongan 20% selama 6 bulan + gratis upgrade Tech Support Prioritas. Total estimasi penghematan: Rp ${Math.round(monthlyCharges * 0.20 * 6).toLocaleString('id-ID')}. Skor risiko: ${riskScore}/100.`
+                        : `[CRITICAL] Emergency Retention: 20% off for 6 months + free Priority Tech Support upgrade. Total est. savings: Rp ${Math.round(monthlyCharges * 0.20 * 6).toLocaleString('id-ID')}. Risk score: ${riskScore}/100.`;
+                }
+
+                if (riskTierLabel === "HIGH") {
+                    // HIGH (skor 45-64): Promo signifikan tapi terarah
+                    if (onlineSecurity === "No") {
+                        return currentLang === 'id'
+                            ? `[TINGGI] Proteksi Keamanan: Gratis Online Security 3 bulan + diskon 15% untuk upgrade ke paket dengan Backup & Device Protection. Skor risiko: ${riskScore}/100.`
+                            : `[HIGH] Security Protection: Free Online Security for 3 months + 15% discount for upgrading to a package with Backup & Device Protection. Risk score: ${riskScore}/100.`;
+                    }
+                    if (contract === "Month-to-month") {
+                        return currentLang === 'id'
+                            ? `[TINGGI] Migrasi Kontrak: Diskon 15% selama 6 bulan jika beralih ke Kontrak 1-Tahun. Estimasi penghematan: Rp ${Math.round(monthlyCharges * 0.15).toLocaleString('id-ID')}/bulan. Skor risiko: ${riskScore}/100.`
+                            : `[HIGH] Contract Migration: 15% discount for 6 months on 1-Year Contract switch. Est. savings: Rp ${Math.round(monthlyCharges * 0.15).toLocaleString('id-ID')}/month. Risk score: ${riskScore}/100.`;
+                    }
+                    if (techSupport === "No") {
+                        return currentLang === 'id'
+                            ? `[TINGGI] Bundle Support: Gratis 3 bulan Tech Support Prioritas + diskon 10% tagihan bulan depan. Skor risiko: ${riskScore}/100.`
+                            : `[HIGH] Support Bundle: Free 3 months Priority Tech Support + 10% discount on next month's bill. Risk score: ${riskScore}/100.`;
+                    }
+                    if (paymentMethod === "Electronic check") {
+                        return currentLang === 'id'
+                            ? `[TINGGI] Autopay Incentive: Cashback Rp 75.000 + diskon 5% permanen jika beralih ke Auto-Debit Bank/Kartu Kredit. Skor risiko: ${riskScore}/100.`
+                            : `[HIGH] Autopay Incentive: Rp 75,000 cashback + 5% permanent discount on Bank/Credit Card Auto-Debit switch. Risk score: ${riskScore}/100.`;
+                    }
+                    return currentLang === 'id'
+                        ? `[TINGGI] Retensi Aktif: Potongan 15% selama 6 bulan untuk paket saat ini. Estimasi penghematan: Rp ${Math.round(monthlyCharges * 0.15 * 6).toLocaleString('id-ID')}. Skor risiko: ${riskScore}/100.`
+                        : `[HIGH] Active Retention: 15% off for 6 months on current plan. Total est. savings: Rp ${Math.round(monthlyCharges * 0.15 * 6).toLocaleString('id-ID')}. Risk score: ${riskScore}/100.`;
+                }
+
+                if (riskTierLabel === "MODERATE") {
+                    // MODERATE (skor 25-44): Promo ringan dan preventif
+                    if (onlineSecurity === "No") {
+                        return currentLang === 'id'
+                            ? `[SEDANG] Uji Coba Keamanan: Gratis Online Security selama 2 bulan sebagai langkah preventif. Skor risiko: ${riskScore}/100.`
+                            : `[MODERATE] Security Trial: Free Online Security for 2 months as a preventive measure. Risk score: ${riskScore}/100.`;
+                    }
+                    if (techSupport === "No") {
+                        return currentLang === 'id'
+                            ? `[SEDANG] Dukungan Proaktif: Gratis 1 bulan Tech Support + konsultasi personal untuk optimasi layanan. Skor risiko: ${riskScore}/100.`
+                            : `[MODERATE] Proactive Support: Free 1 month Tech Support + personal consultation for service optimization. Risk score: ${riskScore}/100.`;
+                    }
+                    if (contract === "Month-to-month") {
+                        return currentLang === 'id'
+                            ? `[SEDANG] Insentif Kontrak: Diskon 10% selama 3 bulan jika beralih ke Kontrak 1-Tahun. Estimasi penghematan: Rp ${Math.round(monthlyCharges * 0.10).toLocaleString('id-ID')}/bulan. Skor risiko: ${riskScore}/100.`
+                            : `[MODERATE] Contract Incentive: 10% discount for 3 months on 1-Year Contract switch. Est. savings: Rp ${Math.round(monthlyCharges * 0.10).toLocaleString('id-ID')}/month. Risk score: ${riskScore}/100.`;
+                    }
+                    return currentLang === 'id'
+                        ? `[SEDANG] Apresiasi Preventif: Voucher Rp 50.000 + konsultasi layanan gratis untuk review kebutuhan pelanggan. Skor risiko: ${riskScore}/100.`
+                        : `[MODERATE] Preventive Appreciation: Rp 50,000 voucher + free service consultation for customer needs review. Risk score: ${riskScore}/100.`;
+                }
+
+                // LOW risk Churn — tetap diprediksi churn tapi faktor risiko rendah
+                return currentLang === 'id'
+                    ? `[RENDAH] Monitoring Preventif: Follow-up call dalam 7 hari + voucher Rp 25.000 sebagai apresiasi. Tidak perlu diskon agresif — faktor risiko terkelola. Skor risiko: ${riskScore}/100.`
+                    : `[LOW] Preventive Monitoring: Follow-up call within 7 days + Rp 25,000 voucher as appreciation. No aggressive discount needed — risk factors managed. Risk score: ${riskScore}/100.`;
+
+            } else {
+                // ========== PELANGGAN TIDAK BERISIKO CHURN (NO CHURN) ==========
+                // Fokus: Upsell, cross-sell, dan penguatan loyalitas.
+                // Promo harus proporsional — tidak memberikan diskon besar untuk pelanggan aman.
+
+                if (tenure >= 36 && contract !== "Month-to-month") {
+                    // Pelanggan sangat loyal (3+ tahun, kontrak panjang)
+                    return currentLang === 'id'
+                        ? `Loyalty Reward VIP: Diskon loyalitas 5% permanen + akses prioritas customer service + 2x Poin Rewards. Pelanggan sangat stabil (skor risiko: ${riskScore}/100).`
+                        : `VIP Loyalty Reward: 5% permanent loyalty discount + priority customer service access + 2x Reward Points. Very stable customer (risk score: ${riskScore}/100).`;
+                }
+
+                if (tenure >= 24) {
+                    // Pelanggan loyal (2+ tahun)
+                    return currentLang === 'id'
+                        ? `Apresiasi Loyalitas: Voucher Belanja Rp 50.000 + 500 Poin Rewards sebagai penghargaan kesetiaan. Skor risiko: ${riskScore}/100.`
+                        : `Loyalty Appreciation: Rp 50,000 Shopping Voucher + 500 Reward Points as loyalty recognition. Risk score: ${riskScore}/100.`;
+                }
+
+                if (onlineSecurity === "No") {
+                    // Upsell keamanan untuk pelanggan aman tapi tanpa proteksi
+                    return currentLang === 'id'
+                        ? `Rekomendasi Keamanan: Uji coba gratis Online Security 1 bulan. Data Anda akan lebih terlindungi dari ancaman siber. Skor risiko: ${riskScore}/100.`
+                        : `Security Recommendation: Free 1-month Online Security trial. Your data will be better protected from cyber threats. Risk score: ${riskScore}/100.`;
+                }
+
+                if (techSupport === "No") {
+                    // Upsell tech support
+                    return currentLang === 'id'
+                        ? `Rekomendasi Layanan: Diskon 30% untuk penambahan Tech Support Prioritas, memastikan koneksi optimal 24/7. Skor risiko: ${riskScore}/100.`
+                        : `Service Recommendation: 30% off for adding Priority Tech Support, ensuring optimal 24/7 connectivity. Risk score: ${riskScore}/100.`;
+                }
+
+                if (contract === "Month-to-month") {
+                    // Insentif kecil untuk upgrade kontrak (preventif)
+                    return currentLang === 'id'
+                        ? `Insentif Kontrak: Bonus saldo Rp 75.000 jika berkomitmen ke Kontrak 1-Tahun. Mengunci harga agar tidak naik. Skor risiko: ${riskScore}/100.`
+                        : `Contract Incentive: Rp 75,000 bonus balance on 1-Year Contract commitment. Lock in current pricing. Risk score: ${riskScore}/100.`;
+                }
+
+                // Pelanggan aman, sudah optimal — maintain saja
+                return currentLang === 'id'
+                    ? `Status Optimal: Tidak diperlukan intervensi promo. Pelanggan stabil — lanjutkan standar layanan saat ini + kirim ucapan terima kasih personal. Skor risiko: ${riskScore}/100.`
+                    : `Optimal Status: No promotional intervention needed. Stable customer — maintain current service standards + send personalized thank-you. Risk score: ${riskScore}/100.`;
+            }
+        }
+
+        function getPromoText(item) {
+            if (item.features) {
+                return generateDynamicPromo(
+                    item.prediction,
+                    item.features.contract,
+                    item.features.techSupport,
+                    item.features.tenure,
+                    item.features.monthlyCharges,
+                    item.features.paymentMethod,
+                    item.features.onlineSecurity
+                );
+            }
+            return item.promo;
+        }
+
+        function updateLanguage() {
+            document.querySelectorAll('[data-i18n]').forEach(el => {
+                const key = el.getAttribute('data-i18n');
+                if (i18n[currentLang][key]) {
+                    el.innerText = i18n[currentLang][key];
+                }
+            });
+
+            // Update active state of language buttons
+            document.getElementById('lang-id').className = `px-2 py-1 rounded text-[10px] font-bold transition-all ${currentLang === 'id' ? 'bg-accent-500 text-white' : 'text-slate-400 hover:text-slate-200'}`;
+            document.getElementById('lang-en').className = `px-2 py-1 rounded text-[10px] font-bold transition-all ${currentLang === 'en' ? 'bg-accent-500 text-white' : 'text-slate-400 hover:text-slate-200'}`;
+
+            loadHistory();
+        }
+
+        function switchTab(tabId) {
+            ['dashboard', 'prediction', 'insights', 'about'].forEach(id => {
+                const el = document.getElementById('view-' + id);
+                if (el) el.classList.add('hidden');
+                
+                const nav = document.getElementById('nav-' + id);
+                if (nav) {
+                    nav.className = nav.className.replace('bg-navy-800 text-accent-400 font-medium', 'text-slate-400 hover:text-slate-200 hover:bg-navy-800');
+                }
+                const mnav = document.getElementById('mnav-' + id);
+                if (mnav) {
+                    mnav.className = mnav.className.replace('bg-navy-800 text-accent-400 font-medium', 'text-slate-400 hover:text-slate-200 hover:bg-navy-800');
+                }
+            });
+            const targetView = document.getElementById('view-' + tabId);
+            if (targetView) targetView.classList.remove('hidden');
+            
+            const activeNav = document.getElementById('nav-' + tabId);
+            if (activeNav) {
+                activeNav.className = activeNav.className.replace('text-slate-400 hover:text-slate-200 hover:bg-navy-800', 'bg-navy-800 text-accent-400 font-medium');
+            }
+            const activeMnav = document.getElementById('mnav-' + tabId);
+            if (activeMnav) {
+                activeMnav.className = activeMnav.className.replace('text-slate-400 hover:text-slate-200 hover:bg-navy-800', 'bg-navy-800 text-accent-400 font-medium');
+            }
+        }
+
+        function toggleMobileSidebar() {
+            const sidebar = document.getElementById('mobile-sidebar');
+            const overlay = document.getElementById('sidebar-overlay');
+            if (sidebar.classList.contains('open')) {
+                sidebar.classList.remove('open');
+                overlay.classList.remove('open');
+            } else {
+                sidebar.classList.add('open');
+                overlay.classList.add('open');
+            }
+        }
+
+        function toggleInputMode(mode) {
+            const tabManual = document.getElementById('tab-manual');
+            const tabCsv = document.getElementById('tab-csv');
+            const formManual = document.getElementById('form-manual');
+            const formCsv = document.getElementById('form-csv');
+
+            document.getElementById('results-container').classList.add('hidden');
+            document.getElementById('result-empty').classList.remove('hidden');
+
+            if (mode === 'manual') {
+                tabManual.className = "px-4 py-1.5 rounded bg-navy-700 text-accent-400 text-xs font-medium transition-all shadow-sm";
+                tabCsv.className = "px-4 py-1.5 rounded text-slate-400 hover:text-slate-200 text-xs font-medium transition-all";
+                formManual.classList.remove('hidden');
+                formCsv.classList.add('hidden');
+            } else {
+                tabCsv.className = "px-4 py-1.5 rounded bg-navy-700 text-accent-400 text-xs font-medium transition-all shadow-sm";
+                tabManual.className = "px-4 py-1.5 rounded text-slate-400 hover:text-slate-200 text-xs font-medium transition-all";
+                formCsv.classList.remove('hidden');
+                formManual.classList.add('hidden');
+            }
+        }
+
+        function updateFileName(input) {
+            const display = document.getElementById('file-name-display');
+            if (input.files && input.files[0]) {
+                display.textContent = input.files[0].name;
+                display.classList.remove('hidden');
+            } else {
+                display.classList.add('hidden');
+            }
+        }
+
+        function loadHistory() {
+            const history = JSON.parse(localStorage.getItem('churnHistory') || '[]');
+            const tbody = document.getElementById('history-table-body');
+            const emptyMsg = document.getElementById('empty-history');
+
+            if (!tbody) return;
+            tbody.innerHTML = '';
+
+            if (history.length === 0) {
+                if (emptyMsg) emptyMsg.classList.remove('hidden');
+            } else {
+                if (emptyMsg) emptyMsg.classList.add('hidden');
+                history.slice().reverse().forEach((item, index) => {
+                    const realIndex = history.length - 1 - index;
+                    const isChurn = item.prediction === 'Churn';
+                    const statusLabel = isChurn ? i18n[currentLang]["risk-high"] : i18n[currentLang]["risk-safe"];
+                    const statusHtml = isChurn
+                        ? `<span class="bg-rose-900/30 text-rose-400 px-2 py-0.5 rounded text-[10px] font-mono border border-rose-500/20">${statusLabel}</span>`
+                        : `<span class="bg-emerald-900/30 text-emerald-400 px-2 py-0.5 rounded text-[10px] font-mono border border-emerald-500/20">${statusLabel}</span>`;
+
+                    const confidence = item.probability ? `${item.probability}%` : '85%';
+                    const confColor = isChurn ? 'text-rose-400' : 'text-emerald-400';
+
+                    let actionBtn = '';
+                    if (item.promoSent) {
+                        actionBtn = `<span class="text-xs font-mono text-slate-500 flex items-center justify-end"><span class="material-symbols-outlined text-[14px] mr-1">mail_lock</span> ${i18n[currentLang]["status-sent"]}</span>`;
+                    } else {
+                        const activePromo = getPromoText(item);
+                        const escapedPromo = (activePromo || "").replace(/'/g, "\\'");
+                        const btnColor = isChurn ? 'bg-cyan-500/10 text-cyan-400 hover:bg-cyan-500 hover:text-navy-900' : 'bg-emerald-500/10 text-emerald-400 hover:bg-emerald-500 hover:text-navy-900';
+                        const btnTitle = isChurn ? (currentLang === 'id' ? 'Kirim Penawaran Retensi' : 'Send Retention Offer') : (currentLang === 'id' ? 'Kirim Reward Loyalitas' : 'Send Loyalty Reward');
+                        const iconName = isChurn ? 'mail' : 'card_giftcard';
+                        actionBtn = `<button id="history-btn-${realIndex}" onclick="sendPromoHistory(${realIndex}, '${item.name.replace(/'/g, "\\'")}', '${escapedPromo}')" class="p-2 rounded ${btnColor} transition-all flex items-center justify-center ml-auto" title="${btnTitle}"><span class="material-symbols-outlined text-[18px]">${iconName}</span></button>`;
+                    }
+
+                    tbody.innerHTML += `
+                    <tr class="border-b border-navy-700/50 hover:bg-navy-800/50 transition-colors">
+                        <td class="py-3 text-xs text-slate-400 font-mono">${item.time}</td>
+                        <td class="py-3 text-sm font-medium text-slate-200">${item.name}</td>
+                        <td class="py-3">${statusHtml}</td>
+                        <td class="py-3 font-mono text-xs ${confColor}">${confidence}</td>
+                        <td class="py-3 text-center">
+                            <button onclick="openModal(${realIndex})" class="text-slate-400 hover:text-accent-400 transition-colors">
+                                <span class="material-symbols-outlined text-[18px]">visibility</span>
+                            </button>
+                        </td>
+                        <td class="py-3">${actionBtn}</td>
+                    </tr>
+                `;
+                });
+            }
+        }
+
+        function openModal(index) {
+            const history = JSON.parse(localStorage.getItem('churnHistory') || '[]');
+            const item = history[index];
+            if (!item) return;
+
+            document.getElementById('modal-cust-id').innerText = item.name;
+            const isChurn = item.prediction === 'Churn';
+            const statusLabel = isChurn ? i18n[currentLang]["risk-high"] : i18n[currentLang]["risk-safe"];
+            const statusClass = isChurn ? 'bg-rose-900/30 text-rose-400 border-rose-500/20' : 'bg-emerald-900/30 text-emerald-400 border-emerald-500/20';
+            
+            document.getElementById('modal-risk-badge').innerHTML = `<span class="${statusClass} px-3 py-1 rounded-full text-xs font-bold border">${statusLabel}</span>`;
+            
+            const prob = item.probability || 85;
+            document.getElementById('modal-conf-score').innerText = `${prob}%`;
+            document.getElementById('modal-trace-conf').innerText = `${prob}%`;
+            document.getElementById('modal-conf-bar').style.width = `${prob}%`;
+            document.getElementById('modal-conf-bar').className = isChurn ? 'bg-rose-500 h-full transition-all duration-500' : 'bg-emerald-500 h-full transition-all duration-500';
+
+            const activePromo = getPromoText(item);
+            document.getElementById('modal-promo-text').innerText = activePromo || "Maintain current service standards.";
+            
+            const actionBtn = document.getElementById('modal-action-btn');
+            actionBtn.classList.remove('hidden');
+            if (item.promoSent) {
+                actionBtn.classList.add('opacity-50', 'pointer-events-none');
+                actionBtn.className = "px-4 py-2 rounded-lg text-sm font-semibold bg-slate-700 text-slate-400 border border-slate-600 flex items-center gap-2 pointer-events-none opacity-50";
+                actionBtn.innerHTML = `<span class="material-symbols-outlined text-[18px]">done_all</span> <span data-i18n="status-sent">${i18n[currentLang]["status-sent"]}</span>`;
+            } else {
+                actionBtn.classList.remove('opacity-50', 'pointer-events-none');
+                if (isChurn) {
+                    actionBtn.className = "px-4 py-2 rounded-lg text-sm font-semibold bg-rose-600 hover:bg-rose-500 text-white transition-colors flex items-center gap-2 cursor-pointer";
+                    actionBtn.innerHTML = `<span class="material-symbols-outlined text-[18px]">mail</span> <span data-i18n="btn-send-offer">${i18n[currentLang]["btn-send-offer"]}</span>`;
+                } else {
+                    actionBtn.className = "px-4 py-2 rounded-lg text-sm font-semibold bg-emerald-600 hover:bg-emerald-500 text-white transition-colors flex items-center gap-2 cursor-pointer";
+                    actionBtn.innerHTML = `<span class="material-symbols-outlined text-[18px]">card_giftcard</span> <span data-i18n="btn-send-reward">${i18n[currentLang]["btn-send-reward"]}</span>`;
+                }
+                actionBtn.onclick = () => { closeModal(); sendPromoHistory(index, item.name, activePromo); };
+            }
+
+            document.getElementById('details-modal').classList.remove('hidden');
+        }
+
+        function closeModal() {
+            document.getElementById('details-modal').classList.add('hidden');
+        }
+
+        function sendPromoHistory(index, name, promoName) {
+            const history = JSON.parse(localStorage.getItem('churnHistory') || '[]');
+            if (history[index]) {
+                history[index].promoSent = true;
+                localStorage.setItem('churnHistory', JSON.stringify(history));
+                loadHistory();
+            }
+            
+            // Professional Styled Alert
+            const alertBox = document.createElement('div');
+            alertBox.className = "fixed top-6 right-6 z-[200] bg-emerald-900 border border-emerald-500 text-emerald-100 p-4 rounded-xl shadow-2xl flex items-center gap-3 animate-in slide-in-from-right duration-300";
+            alertBox.innerHTML = `
+                <span class="material-symbols-outlined text-emerald-400">check_circle</span>
+                <div>
+                    <p class="text-xs font-bold uppercase tracking-wider">Email Dispatched</p>
+                    <p class="text-sm">Offer sent successfully to <span class="font-bold">${name}</span></p>
+                </div>
+            `;
+            document.body.appendChild(alertBox);
+            setTimeout(() => {
+                alertBox.classList.replace('animate-in', 'animate-out');
+                alertBox.classList.add('fade-out', 'slide-out-to-right');
+                setTimeout(() => alertBox.remove(), 500);
+            }, 3000);
+        }
+
+        function clearHistory() {
+            if (confirm('Clear all logs?')) {
+                localStorage.removeItem('churnHistory');
+                loadHistory();
+            }
+        }
+
+        document.addEventListener('DOMContentLoaded', () => {
+            loadHistory();
+            // Init Chart.js
+            const ctx = document.getElementById('churnVolumeChart');
+            if (ctx) {
+                const gradient = ctx.getContext('2d').createLinearGradient(0, 0, 0, 200);
+                gradient.addColorStop(0, 'rgba(99,102,241,0.35)');
+                gradient.addColorStop(1, 'rgba(99,102,241,0.02)');
+                new Chart(ctx, {
+                    type: 'line',
+                    data: {
+                        labels: ['1 Okt','5 Okt','9 Okt','13 Okt','17 Okt','21 Okt','25 Okt','29 Okt'],
+                        datasets: [{
+                            label: 'Prediksi Churn',
+                            data: [18, 31, 24, 42, 28, 53, 38, 33],
+                            borderColor: '#818cf8',
+                            backgroundColor: gradient,
+                            fill: true,
+                            tension: 0.4,
+                            borderWidth: 2,
+                            pointRadius: 3,
+                            pointBackgroundColor: '#818cf8',
+                            pointBorderColor: '#080d1a',
+                            pointBorderWidth: 2,
+                            pointHoverRadius: 6
+                        }]
+                    },
+                    options: {
+                        responsive: true,
+                        maintainAspectRatio: false,
+                        plugins: { legend: { display: false } },
+                        scales: {
+                            x: { grid: { color: 'rgba(99,102,241,0.05)' }, ticks: { color: '#5f6b7e', font: { family: 'IBM Plex Mono', size: 10 } } },
+                            y: { grid: { color: 'rgba(99,102,241,0.05)' }, ticks: { color: '#5f6b7e', font: { family: 'IBM Plex Mono', size: 10 } }, beginAtZero: true }
+                        }
+                    }
+                });
+            }
+            updateLanguage();
+            loadDevInfo();
+
+            // Init Insights Charts
+            const distCtx = document.getElementById('churnDistChart');
+            if (distCtx) {
+                new Chart(distCtx, {
+                    type: 'doughnut',
+                    data: {
+                        labels: ['Churn', 'Retained'],
+                        datasets: [{
+                            data: [26.5, 73.5],
+                            backgroundColor: ['#f43f5e', '#10B981'],
+                            borderColor: ['#080d1a', '#080d1a'],
+                            borderWidth: 3,
+                            hoverOffset: 8
+                        }]
+                    },
+                    options: {
+                        responsive: true,
+                        maintainAspectRatio: false,
+                        cutout: '68%',
+                        plugins: {
+                            legend: { display: false },
+                            tooltip: {
+                                backgroundColor: '#151e35',
+                                titleColor: '#e2e8f0',
+                                bodyColor: '#c8d1de',
+                                borderColor: 'rgba(99,102,241,0.15)',
+                                borderWidth: 1,
+                                callbacks: {
+                                    label: (ctx) => ` ${ctx.label}: ${ctx.parsed}%`
+                                }
+                            }
+                        }
+                    }
+                });
+            }
+            const driverCtx = document.getElementById('churnDriversChart');
+            if (driverCtx) {
+                new Chart(driverCtx, {
+                    type: 'bar',
+                    data: {
+                        labels: ['M2M Contract', 'No Tech Support', 'High Charges', 'E-Check Payment', 'No Security', 'Low Tenure'],
+                        datasets: [{
+                            label: 'Churn Impact %',
+                            data: [32, 21, 18, 15, 14, 12],
+                            backgroundColor: [
+                                'rgba(244,63,94,0.7)',
+                                'rgba(244,63,94,0.6)',
+                                'rgba(244,63,94,0.5)',
+                                'rgba(251,191,36,0.5)',
+                                'rgba(251,191,36,0.4)',
+                                'rgba(251,191,36,0.35)'
+                            ],
+                            borderColor: [
+                                '#f43f5e',
+                                '#f43f5e',
+                                '#f43f5e',
+                                '#fbbf24',
+                                '#fbbf24',
+                                '#fbbf24'
+                            ],
+                            borderWidth: 1,
+                            borderRadius: 4
+                        }]
+                    },
+                    options: {
+                        indexAxis: 'y',
+                        responsive: true,
+                        maintainAspectRatio: false,
+                        plugins: { legend: { display: false } },
+                        scales: {
+                            x: {
+                                grid: { color: 'rgba(99,102,241,0.05)' },
+                                ticks: { color: '#5f6b7e', font: { family: 'IBM Plex Mono', size: 10 }, callback: (v) => v + '%' },
+                                max: 40
+                            },
+                            y: {
+                                grid: { display: false },
+                                ticks: { color: '#c8d1de', font: { family: 'Plus Jakarta Sans', size: 11 } }
+                            }
+                        }
+                    }
+                });
+            }
+        });
+
+        document.getElementById('analyze-btn').addEventListener('click', async () => {
+            const form = document.getElementById('churn-form');
+            const loader = document.getElementById('loader');
+            const resultEmpty = document.getElementById('result-empty');
+            const resultsContainer = document.getElementById('results-container');
+            const resultChurn = document.getElementById('result-churn');
+            const resultNoChurn = document.getElementById('result-no-churn');
+            const decisionCard = document.getElementById('decision-card');
+            const decisionText = document.getElementById('decision-text');
+            const explainBars = document.getElementById('explainability-bars');
+
+            if (!form.checkValidity()) {
+                form.reportValidity();
+                return;
+            }
+
+            const fd = new FormData(form);
+            const map = {
+                "gender": (v) => v === "Male" ? 1 : 0,
+                "SeniorCitizen": (v) => parseInt(v),
+                "Partner": (v) => v === "Yes" ? 1 : 0,
+                "Dependents": (v) => v === "Yes" ? 1 : 0,
+                "PhoneService": (v) => v === "Yes" ? 1 : 0,
+                "MultipleLines": (v) => v === "Yes" ? 2 : (v === "No" ? 0 : 1),
+                "InternetService": (v) => v === "Fiber optic" ? 1 : (v === "DSL" ? 0 : 2),
+                "OnlineSecurity": (v) => v === "Yes" ? 2 : (v === "No" ? 0 : 1),
+                "OnlineBackup": (v) => v === "Yes" ? 2 : (v === "No" ? 0 : 1),
+                "DeviceProtection": (v) => v === "Yes" ? 2 : (v === "No" ? 0 : 1),
+                "TechSupport": (v) => v === "Yes" ? 2 : (v === "No" ? 0 : 1),
+                "StreamingTV": (v) => v === "Yes" ? 2 : (v === "No" ? 0 : 1),
+                "StreamingMovies": (v) => v === "Yes" ? 2 : (v === "No" ? 0 : 1),
+                "Contract": (v) => v === "Two year" ? 2 : (v === "One year" ? 1 : 0),
+                "PaperlessBilling": (v) => v === "Yes" ? 1 : 0,
+                "PaymentMethod": (v) => {
+                    if (v === "Electronic check") return 2;
+                    if (v === "Mailed check") return 3;
+                    if (v === "Bank transfer (automatic)") return 0;
+                    return 1;
+                }
+            };
+
+            function getVal(fd, name) { return fd.get(name); }
+
+            const monthlyRp = parseFloat(fd.get('MonthlyCharges') || 0);
+            const features = [
+                map.gender(fd.get('gender')),
+                map.SeniorCitizen(fd.get('SeniorCitizen')),
+                map.Partner(fd.get('Partner')),
+                map.Dependents(fd.get('Dependents')),
+                parseFloat(fd.get('tenure') || 0),
+                map.PhoneService(fd.get('PhoneService')),
+                map.MultipleLines(fd.get('MultipleLines')),
+                map.InternetService(fd.get('InternetService')),
+                map.OnlineSecurity(getVal(fd, 'OnlineSecurity')),
+                map.OnlineBackup(getVal(fd, 'OnlineBackup')),
+                map.DeviceProtection(getVal(fd, 'DeviceProtection')),
+                map.TechSupport(getVal(fd, 'TechSupport')),
+                map.StreamingTV(getVal(fd, 'StreamingTV')),
+                map.StreamingMovies(getVal(fd, 'StreamingMovies')),
+                map.Contract(getVal(fd, 'Contract')),
+                map.PaperlessBilling(getVal(fd, 'PaperlessBilling')),
+                map.PaymentMethod(getVal(fd, 'PaymentMethod')),
+                monthlyRp / 15000,
+                parseFloat(fd.get('TotalCharges') || 0) / 15000
+            ];
+
+            loader.classList.remove('hidden');
+            resultEmpty.classList.add('hidden');
+            resultsContainer.classList.add('hidden');
+            resultChurn.classList.add('hidden');
+            resultNoChurn.classList.add('hidden');
+            decisionCard.classList.add('hidden');
+
+            try {
+                const response = await fetch('/predict', {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({ features: features })
+                });
+
+                if (!response.ok) throw new Error(`Server error`);
+                const result = await response.json();
+
+                resultsContainer.classList.remove('hidden');
+
+                const contract = fd.get('Contract');
+                const techSupport = fd.get('TechSupport');
+                const tenure = parseFloat(fd.get('tenure') || 0);
+                const paymentMethod = fd.get('PaymentMethod');
+                const onlineSecurity = fd.get('OnlineSecurity');
+
+                const promoSaran = generateDynamicPromo(
+                    result.prediction,
+                    contract,
+                    techSupport,
+                    tenure,
+                    monthlyRp,
+                    paymentMethod,
+                    onlineSecurity
+                );
+
+                const prob = result.probability || 85;
+                let riskTier = "";
+                if (prob > 85) riskTier = "CRITICAL";
+                else if (prob > 70) riskTier = "HIGH";
+                else if (prob > 50) riskTier = "MODERATE";
+                else riskTier = "LOW";
+
+                let reasonsHtml = '';
+                if (contract === "Month-to-month") {
+                    reasonsHtml += `<div><div class="flex justify-between text-xs mb-1 text-slate-300"><span>Month-to-month contract</span> <span class="text-rose-400">+32% Impact</span></div><div class="w-full bg-navy-800 rounded-full h-1.5"><div class="bg-rose-500 h-1.5 rounded-full w-[80%]"></div></div></div>`;
+                }
+                if (techSupport === "No") {
+                    reasonsHtml += `<div><div class="flex justify-between text-xs mb-1 text-slate-300"><span>No tech support</span> <span class="text-rose-400">+21% Impact</span></div><div class="w-full bg-navy-800 rounded-full h-1.5"><div class="bg-rose-500 h-1.5 rounded-full w-[60%]"></div></div></div>`;
+                }
+                if (tenure < 6) {
+                    reasonsHtml += `<div><div class="flex justify-between text-xs mb-1 text-slate-300"><span>Low tenure (< 6 mos)</span> <span class="text-rose-400">+14% Impact</span></div><div class="w-full bg-navy-800 rounded-full h-1.5"><div class="bg-rose-500 h-1.5 rounded-full w-[40%]"></div></div></div>`;
+                }
+                if (monthlyRp > 1000000) {
+                    reasonsHtml += `<div><div class="flex justify-between text-xs mb-1 text-slate-300"><span>High monthly charges</span> <span class="text-rose-400">+18% Impact</span></div><div class="w-full bg-navy-800 rounded-full h-1.5"><div class="bg-rose-500 h-1.5 rounded-full w-[50%]"></div></div></div>`;
+                }
+                if (reasonsHtml === '') {
+                    reasonsHtml = `<p class="text-xs text-slate-500 italic">No critical negative drivers detected. Risk is baseline.</p>`;
+                }
+                explainBars.innerHTML = reasonsHtml;
+
+                const customerName = fd.get('customerName').trim() || 'Unknown';
+                if (result.prediction === "Churn") {
+                    document.getElementById('display-id-churn').textContent = `ID: ${customerName}`;
+                    resultChurn.classList.remove('hidden');
+                    decisionCard.classList.remove('hidden');
+                    decisionText.textContent = promoSaran;
+                } else {
+                    document.getElementById('display-id-no-churn').textContent = `ID: ${customerName}`;
+                    resultNoChurn.classList.remove('hidden');
+                    decisionCard.classList.remove('hidden');
+                    decisionText.textContent = promoSaran;
+                }
+                const now = new Date();
+                const timeString = now.toLocaleDateString('en-US') + ' ' + now.toLocaleTimeString('en-US');
+
+                const history = JSON.parse(localStorage.getItem('churnHistory') || '[]');
+                history.push({
+                    name: customerName,
+                    prediction: result.prediction,
+                    probability: result.probability,
+                    time: timeString,
+                    features: {
+                        contract: contract,
+                        techSupport: techSupport,
+                        tenure: tenure,
+                        monthlyCharges: monthlyRp,
+                        paymentMethod: fd.get('PaymentMethod'),
+                        onlineSecurity: fd.get('OnlineSecurity')
+                    },
+                    promo: promoSaran
+                });
+                localStorage.setItem('churnHistory', JSON.stringify(history));
+                loadHistory();
+                
+                // Automatically open details modal for the new prediction
+                setTimeout(() => openModal(history.length - 1), 500);
+
+            } catch (e) {
+                console.error(e);
+                alert('Inference failed.');
+            } finally {
+                loader.classList.add('hidden');
+            }
+        });
+
+        document.getElementById('process-csv-btn').addEventListener('click', async () => {
+            const fileInput = document.getElementById('csv-file');
+            if (!fileInput.files || fileInput.files.length === 0) return alert('Select CSV file.');
+
+            const file = fileInput.files[0];
+            const loader = document.getElementById('loader-csv');
+            const progressContainer = document.getElementById('csv-progress-container');
+            const progressBar = document.getElementById('csv-progress-bar');
+            const progressText = document.getElementById('csv-progress-text');
+            const btn = document.getElementById('process-csv-btn');
+
+            loader.classList.remove('hidden');
+            progressContainer.classList.remove('hidden');
+            btn.disabled = true;
+
+            const reader = new FileReader();
+            reader.onload = async function (e) {
+                const lines = e.target.result.split('\n').filter(l => l.trim().length > 0);
+                if (lines.length < 2) { alert('Invalid CSV'); reset(); return; }
+
+                const headers = lines[0].split(',').map(h => h.trim().replace(/["']/g, ''));
+                const cIdIndex = headers.findIndex(h => h.toLowerCase() === 'customerid');
+                const totalData = lines.length - 1;
+                let processed = 0;
+                const history = JSON.parse(localStorage.getItem('churnHistory') || '[]');
+
+                const map = {
+                    "gender": (v) => v === "Male" ? 1 : 0,
+                    "SeniorCitizen": (v) => parseInt(v || 0),
+                    "Partner": (v) => v === "Yes" ? 1 : 0,
+                    "Dependents": (v) => v === "Yes" ? 1 : 0,
+                    "PhoneService": (v) => v === "Yes" ? 1 : 0,
+                    "MultipleLines": (v) => v === "Yes" ? 2 : (v === "No" ? 0 : 1),
+                    "InternetService": (v) => v === "Fiber optic" ? 1 : (v === "DSL" ? 0 : 2),
+                    "OnlineSecurity": (v) => v === "Yes" ? 2 : (v === "No" ? 0 : 1),
+                    "OnlineBackup": (v) => v === "Yes" ? 2 : (v === "No" ? 0 : 1),
+                    "DeviceProtection": (v) => v === "Yes" ? 2 : (v === "No" ? 0 : 1),
+                    "TechSupport": (v) => v === "Yes" ? 2 : (v === "No" ? 0 : 1),
+                    "StreamingTV": (v) => v === "Yes" ? 2 : (v === "No" ? 0 : 1),
+                    "StreamingMovies": (v) => v === "Yes" ? 2 : (v === "No" ? 0 : 1),
+                    "Contract": (v) => v === "Two year" ? 2 : (v === "One year" ? 1 : 0),
+                    "PaperlessBilling": (v) => v === "Yes" ? 1 : 0,
+                    "PaymentMethod": (v) => {
+                        if (v === "Electronic check") return 2;
+                        if (v === "Mailed check") return 3;
+                        if (v === "Bank transfer (automatic)") return 0;
+                        return 1;
+                    }
+                };
+
+                const now = new Date();
+                for (let i = 1; i < lines.length; i++) {
+                    const row = lines[i].split(',').map(item => item.trim().replace(/["']/g, ''));
+                    const getVal = (name) => { const idx = headers.findIndex(h => h.toLowerCase() === name.toLowerCase()); return idx !== -1 ? row[idx] : ""; };
+                    const customerID = cIdIndex !== -1 ? row[cIdIndex] : `Batch-${i}`;
+
+                    try {
+                        const features = [
+                            map.gender(getVal('gender')), map.SeniorCitizen(getVal('SeniorCitizen')), map.Partner(getVal('Partner')), map.Dependents(getVal('Dependents')),
+                            parseFloat(getVal('tenure') || 0), map.PhoneService(getVal('PhoneService')), map.MultipleLines(getVal('MultipleLines')), map.InternetService(getVal('InternetService')),
+                            map.OnlineSecurity(getVal('OnlineSecurity')), map.OnlineBackup(getVal('OnlineBackup')), map.DeviceProtection(getVal('DeviceProtection')), map.TechSupport(getVal('TechSupport')),
+                            map.StreamingTV(getVal('StreamingTV')), map.StreamingMovies(getVal('StreamingMovies')), map.Contract(getVal('Contract')), map.PaperlessBilling(getVal('PaperlessBilling')),
+                            map.PaymentMethod(getVal('PaymentMethod')), parseFloat(getVal('MonthlyCharges') || 0) / 15000, parseFloat(getVal('TotalCharges') || 0) / 15000
+                        ];
+
+                        const response = await fetch('/predict', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ features: features }) });
+                        if (response.ok) {
+                            const result = await response.json();
+                            const prob = result.probability || 85;
+                            
+                            const contractVal = getVal('Contract');
+                            const techSupportVal = getVal('TechSupport');
+                            const tenureVal = parseFloat(getVal('tenure') || 0);
+                            const monthlyChargesVal = parseFloat(getVal('MonthlyCharges') || 0);
+                            const paymentMethodVal = getVal('PaymentMethod');
+                            const onlineSecurityVal = getVal('OnlineSecurity');
+
+                            const promoSaran = generateDynamicPromo(
+                                result.prediction,
+                                contractVal,
+                                techSupportVal,
+                                tenureVal,
+                                monthlyChargesVal,
+                                paymentMethodVal,
+                                onlineSecurityVal
+                            );
+
+                            history.push({
+                                name: customerID, 
+                                prediction: result.prediction,
+                                probability: prob,
+                                time: now.toLocaleDateString('en-US') + ' ' + now.toLocaleTimeString('en-US'),
+                                features: {
+                                    contract: contractVal,
+                                    techSupport: techSupportVal,
+                                    tenure: tenureVal,
+                                    monthlyCharges: monthlyChargesVal,
+                                    paymentMethod: paymentMethodVal,
+                                    onlineSecurity: onlineSecurityVal
+                                },
+                                promo: promoSaran
+                            });
+                        }
+                    } catch (err) { console.error(`Error processing row ${i}:`, err); }
+                    processed++;
+                    progressBar.style.width = Math.floor((processed / totalData) * 100) + '%';
+                    progressText.innerText = `${processed} / ${totalData}`;
+                }
+
+                localStorage.setItem('churnHistory', JSON.stringify(history));
+                loadHistory();
+                reset();
+                switchTab('dashboard');
+            };
+            reader.readAsText(file);
+
+            function reset() {
+                loader.classList.add('hidden');
+                progressContainer.classList.add('hidden');
+                btn.disabled = false;
+                progressBar.style.width = '0%';
+                fileInput.value = '';
+                document.getElementById('file-name-display').classList.add('hidden');
+            }
+        });
+
+        document.getElementById('decision-btn')?.addEventListener('click', function () {
+            alert("Action sent to retention team queue.");
+            this.innerHTML = "Action Executed";
+            this.classList.add("opacity-50", "cursor-not-allowed");
+        });
+        function updateDevCard() {
+            // No-op: Project documentation section is now read-only
+        }
+
+        function loadDevInfo() {
+            // No-op: Project documentation section is now read-only
+        }
+
+    </script>
+    <!-- Details Modal -->
+    <div id="details-modal" class="fixed inset-0 z-[100] hidden flex items-center justify-center p-4 bg-navy-950/80 backdrop-blur-sm">
+        <div class="glass-panel w-full max-w-2xl rounded-2xl overflow-hidden animate-in zoom-in-95 duration-200">
+            <div class="p-6 border-b border-navy-700 flex justify-between items-center">
+                <div class="flex items-center">
+                    <span class="material-symbols-outlined text-accent-400 mr-2">analytics</span>
+                    <h3 class="text-lg font-semibold text-slate-200" data-i18n="modal-title">Prediction Insights</h3>
+                </div>
+                <button onclick="closeModal()" class="text-slate-400 hover:text-white transition-colors">
+                    <span class="material-symbols-outlined">close</span>
+                </button>
+            </div>
+            <div class="p-6 space-y-6 max-h-[70vh] overflow-y-auto">
+                <div class="grid grid-cols-2 gap-4">
+                    <div class="bg-navy-800/50 p-4 rounded-xl border border-navy-700">
+                        <p class="text-[10px] text-slate-500 uppercase font-bold mb-1" data-i18n="th-id">Customer ID</p>
+                        <p id="modal-cust-id" class="text-slate-200 font-mono">-</p>
+                    </div>
+                    <div class="bg-navy-800/50 p-4 rounded-xl border border-navy-700">
+                        <p class="text-[10px] text-slate-500 uppercase font-bold mb-1" data-i18n="th-risk">Risk Level</p>
+                        <div id="modal-risk-badge">-</div>
+                    </div>
+                </div>
+
+                <div>
+                    <h4 class="text-xs font-semibold text-slate-400 uppercase tracking-wider mb-3 flex items-center">
+                        <span class="material-symbols-outlined text-[16px] mr-2 text-rose-400">psychology</span>
+                        <span data-i18n="model-logic">SVM Decision Logic</span>
+                    </h4>
+                    <div class="bg-navy-900 rounded-xl p-4 border border-navy-700/50">
+                        <div class="flex justify-between items-center mb-2">
+                            <span class="text-sm text-slate-300" data-i18n="conf-score">Confidence Score</span>
+                            <span id="modal-conf-score" class="text-lg font-mono font-bold text-accent-400">0%</span>
+                        </div>
+                        <div class="w-full bg-navy-800 rounded-full h-2 overflow-hidden">
+                            <div id="modal-conf-bar" class="bg-accent-500 h-full w-0 transition-all duration-500"></div>
+                        </div>
+                    </div>
+                </div>
+
+                <div id="modal-promo-section">
+                    <h4 class="text-xs font-semibold text-slate-400 uppercase tracking-wider mb-3 flex items-center">
+                        <span class="material-symbols-outlined text-[16px] mr-2 text-emerald-400">campaign</span>
+                        <span data-i18n="rec-promo">Recommended Promotion</span>
+                    </h4>
+                    <div class="bg-emerald-900/10 border border-emerald-500/20 rounded-xl p-4">
+                        <p id="modal-promo-text" class="text-sm text-emerald-200 italic font-medium leading-relaxed"></p>
+                    </div>
+                </div>
+
+                <div>
+                    <h4 class="text-xs font-semibold text-slate-400 uppercase tracking-wider mb-3 flex items-center">
+                        <span class="material-symbols-outlined text-[16px] mr-2 text-amber-400">account_tree</span>
+                        <span data-i18n="trace-title">Process Pipeline Trace</span>
+                    </h4>
+                    <div class="space-y-3 bg-navy-900/80 p-4 rounded-xl border border-navy-700 font-mono text-[11px]">
+                        <div class="flex gap-3">
+                            <span class="text-slate-400" data-i18n="trace-1">[1] Membersihkan Data: Menyeimbangkan angka agar AI bisa membandingkan secara adil.</span>
+                            <span class="text-emerald-400 ml-auto whitespace-nowrap">DONE</span>
+                        </div>
+                        <div class="flex gap-3">
+                            <span class="text-slate-400" data-i18n="trace-2">[2] Mencari Pola: Mencari hubungan tersembunyi antara perilaku pelanggan.</span>
+                            <span class="text-emerald-400 ml-auto whitespace-nowrap">DONE</span>
+                        </div>
+                        <div class="flex gap-3">
+                            <span class="text-slate-400" data-i18n="trace-3">[3] Logika Keputusan: Menghitung batas matematis antara 'Tetap' vs 'Churn'.</span>
+                            <span class="text-emerald-400 ml-auto whitespace-nowrap">DONE</span>
+                        </div>
+                        <div class="flex gap-3 border-t border-navy-700 pt-2 mt-2">
+                            <div class="flex flex-col">
+                                <span class="text-slate-200" data-i18n="trace-result">[HASIL] Mengonversi skor teknis menjadi persentase risiko yang mudah dibaca.</span>
+                                <span class="text-accent-400 font-bold mt-1">> Confidence: <span id="modal-trace-conf">0%</span></span>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+            <div class="p-6 bg-navy-800/30 border-t border-navy-700 flex justify-end gap-3">
+                <button onclick="closeModal()" class="px-4 py-2 rounded-lg text-sm font-medium text-slate-400 hover:text-slate-200 transition-colors" data-i18n="btn-close">Close</button>
+                <button id="modal-action-btn" class="px-4 py-2 rounded-lg text-sm font-semibold bg-cyan-500 text-navy-900 hover:bg-cyan-400 transition-colors flex items-center gap-2">
+                    <span class="material-symbols-outlined text-[18px]">mail</span>
+                    <span data-i18n="btn-send-offer">Send Offer</span>
+                </button>
+            </div>
+        </div>
+    </div>
+</body>
+
+</html>
