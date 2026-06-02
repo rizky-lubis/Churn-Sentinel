@@ -37,7 +37,7 @@
         *{box-sizing:border-box}
         body { background:#080d1a; color:#e2e8f0; font-family:'Plus Jakarta Sans',system-ui,sans-serif; }
         body::before { content:''; position:fixed; inset:0; background-image:radial-gradient(rgba(99,102,241,0.03) 1px,transparent 1px); background-size:32px 32px; pointer-events:none; z-index:0; }
-        .glass-panel { background:linear-gradient(135deg,rgba(21,30,53,0.7),rgba(12,20,37,0.85)); border:1px solid rgba(99,102,241,0.08); box-shadow:0 2px 8px rgba(0,0,0,0.2),0 0 0 1px rgba(255,255,255,0.02) inset; backdrop-filter:blur(8px); }
+        .glass-panel { background:linear-gradient(135deg,rgba(21,30,53,0.7),rgba(12,20,37,0.85)); border:1px solid rgba(99,102,241,0.08); box-shadow:0 2px 8px rgba(0,0,0,0.2),0 0 0 1px rgba(255,255,255,0.02) inset; -webkit-backdrop-filter:blur(8px); backdrop-filter:blur(8px); }
         .input-field { background:rgba(255,255,255,0.95); border:1.5px solid #d1d5db; color:#1e293b; transition:all 0.2s ease; font-size:0.9rem; font-family:'Plus Jakarta Sans',sans-serif; }
         .input-field:focus { outline:none; border-color:#6366f1; box-shadow:0 0 0 3px rgba(99,102,241,0.15); background:#fff; }
         .input-field::placeholder { color:#9ca3af; }
@@ -64,7 +64,7 @@
         .step-num { width:28px; height:28px; border-radius:8px; background:rgba(99,102,241,0.12); color:#818cf8; display:flex; align-items:center; justify-content:center; font-size:12px; font-weight:700; flex-shrink:0; }
         .mobile-sidebar { position:fixed; top:0; left:0; bottom:0; width:260px; z-index:100; background:#0c1425; border-right:1px solid rgba(99,102,241,0.08); transform:translateX(-100%); transition:transform 0.3s ease; }
         .mobile-sidebar.open { transform:translateX(0); }
-        .sidebar-overlay { position:fixed; inset:0; background:rgba(0,0,0,0.6); z-index:99; display:none; backdrop-filter:blur(2px); }
+        .sidebar-overlay { position:fixed; inset:0; background:rgba(0,0,0,0.6); z-index:99; display:none; -webkit-backdrop-filter:blur(2px); backdrop-filter:blur(2px); }
         .sidebar-overlay.open { display:block; }
         .about-card { background:linear-gradient(145deg,rgba(21,30,53,0.5),rgba(12,20,37,0.7)); border:1px solid rgba(99,102,241,0.06); border-radius:16px; padding:28px; }
         .about-card h3 { color:#818cf8; font-size:1.05rem; font-weight:700; margin-bottom:14px; display:flex; align-items:center; gap:10px; }
@@ -72,7 +72,7 @@
         .flow-step { display:flex; align-items:flex-start; gap:14px; padding:16px; border-radius:14px; background:rgba(8,13,26,0.5); border:1px solid rgba(99,102,241,0.05); transition:border-color 0.2s; }
         .flow-step:hover { border-color:rgba(99,102,241,0.12); }
         .flow-step .icon-wrap { width:44px; height:44px; border-radius:12px; display:flex; align-items:center; justify-content:center; flex-shrink:0; }
-        .brand-text { font-weight:800; font-size:1rem; background:linear-gradient(135deg,#818cf8,#2dd4bf); -webkit-background-clip:text; -webkit-text-fill-color:transparent; letter-spacing:-0.02em; }
+        .brand-text { font-weight:800; font-size:1rem; background:linear-gradient(135deg,#818cf8,#2dd4bf); -webkit-background-clip:text; background-clip:text; -webkit-text-fill-color:transparent; letter-spacing:-0.02em; }
         select.input-field { appearance:auto; }
     </style>
 </head>
